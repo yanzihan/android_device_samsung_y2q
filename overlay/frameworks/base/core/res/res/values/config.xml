@@ -223,5 +223,14 @@
 
     <!-- The type of the light sensor to be used by the display framework for things like
          auto-brightness. If unset, then it just gets the default sensor of type TYPE_LIGHT. -->
-    <string name="config_displayLightSensorType">com.samsung.sensor.physical_light</string>
+    <!-- y2q's sensors HAL (vendor/lib64/sensors.ssc.so) registers this sensor as
+         "com.samsung.sensor.auto_brightness".  The inherited value from r8q,
+         "com.samsung.sensor.physical_light", does not exist on this device - the
+         HAL exposes no such type - so the framework failed to resolve the ambient
+         light sensor: dumpsys display showed
+             mAmbientLightSensor=SensorData{type=com.samsung.sensor.physical_light, name=}
+         with an empty name, and every BrightnessEvent carried lux=-1.0 with
+         strat=FallbackBrightnessStrategy, i.e. auto-brightness never had any data.
+         Verified against the strings in the shipped sensors.ssc.so blob. -->
+    <string name="config_displayLightSensorType">com.samsung.sensor.auto_brightness</string>
 </resources>
