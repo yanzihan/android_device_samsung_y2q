@@ -1,13 +1,15 @@
+//
+// SPDX-FileCopyrightText: The LineageOS Project
+// SPDX-License-Identifier: Apache-2.0
+//
+
+// Broadcom bcmdhd WiFi init.  wifi_sec.rc is NOT duplicated here: sm8250-common
+// already provides it (and it is chip-agnostic - EFS perms + the macloader
+// service that generates the WiFi MAC/nvram), so it comes from the common
+// namespace to avoid a duplicate-module namespace clash.
 prebuilt_etc {
     name: "wifi_brcm.rc",
     src: "etc/init/wifi_brcm.rc",
-    sub_dir: "init",
-    vendor: true,
-}
-
-prebuilt_etc {
-    name: "wifi_sec.rc",
-    src: "etc/init/wifi_sec.rc",
     sub_dir: "init",
     vendor: true,
 }

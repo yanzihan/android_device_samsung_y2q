@@ -89,18 +89,25 @@ $(call soong_config_set,surfaceflinger,udfps_lib,//hardware/samsung/fingerprint:
 # Wi-Fi
 # Broadcom BCM4375 via bcmdhd (see BoardConfig.mk).  wifi_brcm.rc replaces the
 # Qualcomm wifi_qcom.rc inherited from sm8250-common.
+# android.hardware.wifi-service / hostapd / wpa_supplicant / wpa_supplicant.conf /
+# wifi_sec.rc are already provided AND packaged by sm8250-common - only add what
+# is Broadcom/y2q specific here.
 PRODUCT_PACKAGES += \
-    android.hardware.wifi-service \
-    hostapd \
-    wpa_supplicant \
-    wpa_supplicant.conf \
     wifi_brcm.rc \
-    wifi_sec.rc \
     WiFiOverlayDevice
 
+# bcmdhd_sta.bin / nvram_net.txt are shipped under the exact names the kernel's
+# compile-time CONFIG_BCMDHD_FW_PATH / CONFIG_BCMDHD_NVRAM_PATH look for
+# ("/etc/wifi/..." with VENDOR_PATH="/vendor"), which is NOT where the stock
+# firmware puts them (vendor/firmware/bcmdhd_sta.bin_b1).  Doing it this way
+# avoids having to rebuild the kernel with patched config paths.
+#
+# The p2p/wpa supplicant overlay confs are deliberately NOT copied from here:
+# sm8250-common already copies its own versions to the same destinations, and two
+# PRODUCT_COPY_FILES with the same destination but different sources is a build
+# error.  Its versions are the generic Qualcomm-oriented ones but harmless for
+# bcmdhd; the y2s-tuned copies live in configs/wifi/ for reference.
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/configs/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf \
-    $(LOCAL_PATH)/configs/wifi/wpa_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant_overlay.conf \
     $(LOCAL_PATH)/configs/wifi/bcmdhd_sta.bin:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/bcmdhd_sta.bin \
     $(LOCAL_PATH)/configs/wifi/nvram_net.txt:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/nvram_net.txt
 
