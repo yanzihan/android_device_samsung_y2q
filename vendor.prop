@@ -1,18 +1,11 @@
 # Bluetooth
-bluetooth.device.default_name=Galaxy S20+
+bluetooth.device.default_name=Galaxy S20+ 5G
 
 # Fingerprint
 ro.vendor.fingerprint.type=udfps
 ro.vendor.fingerprint.sensor_location=720|2500|136
 
 # NFC (NXP SN100U)
-# Values copied verbatim from the stock vendor/build.prop of G9860ZHUCHZE1.
-# y2q's NFC part is an NXP SN100U - NOT the Samsung SLSI sec_s3nsen4 used by the
-# Exynos y2s, and NOT what init.y2q.rc's r8q-derived SM-G78xx blocks assume
-# (those set ro.vendor.nfc.feature.chipname to "SLSI").
-# Stock also gates this on `on property:ro.boot.hardware.sku=sn110t` in
-# init.target.rc, with "SLSI" for s3fwrn5; setting the SN100U value directly is
-# equivalent for this device and avoids depending on the SKU being reported.
 ro.vendor.nfc.feature.chipname=NXP_SN100U
 ro.vendor.nfc.support.advancedsetting=true
 ro.vendor.nfc.support.autoselect=true
@@ -23,3 +16,17 @@ ro.vendor.nfc.support.uicc=true
 ro.vendor.nfc.support.ese=true
 ro.vendor.nfc.info.antpos=1
 ro.camera.notify_nfc=1
+
+# Display / refresh rate
+# sm8250-common inherits ro.surface_flinger.enable_frame_rate_override=false from
+# r8q.  With frame rate override off the framework never switches the panel
+# refresh rate, so the 120 Hz modes the kernel exposes are never selected: the
+# device sits at 60 Hz and Settings shows only the "smooth display" toggle
+# instead of a refresh-rate picker.  Verified against a working SM8350/p3q build
+# of the same LineageOS version, which reports enable_frame_rate_override=true and
+# 12 modes (1440x3200 and 1080x2400 and 720x1600 @ 120/96/60/48).
+# y2q's kernel exposes the same 12 modes (12 timings in
+# dsi_panel_S6E3HAB_AMB677TY01_wqhd_octa_cmd.dtsi; 120 Hz is present in the built
+# dtbo), so only this property was blocking 120 Hz.
+ro.surface_flinger.enable_frame_rate_override=true
+ro.surface_flinger.game_default_frame_rate_override=60
