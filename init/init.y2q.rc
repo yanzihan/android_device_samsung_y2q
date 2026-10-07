@@ -164,3 +164,14 @@ on post-fs-data && property:ro.csc.sales_code=DSA
 # were actively misleading: they set ro.boot.product.hardware.sku="s3fwrn5" and
 # ro.vendor.nfc.feature.chipname="SLSI", whereas y2q's NFC part is an NXP SN100U.
 # The correct chipname is set in vendor.prop (NXP_SN100U).
+
+# Bluetooth: sm8250-common's vendor blobs come from r8q firmware
+# (G780GXXSHEYJ1) and therefore package the *Qualcomm* BT stack
+# (android.hardware.bluetooth@1.0-service-qti + impl-qti + htbtfw/htnv20) in
+# PRODUCT_PACKAGES.  That is correct for r8q but wrong here: y2q has a Broadcom
+# BCM4375 and uses the AOSP service + libbt-vendor, which device.mk provides.
+# Both services are "class hal" with no "disabled", so both would start and race
+# for the same HS-UART (qupv3_se6_4uart).  Stop the Qualcomm one; it cannot work
+# anyway (its own libbtnv.so is absent and y2q has no htnv20/hbtfw firmware).
+on early-init
+    stop vendor.bluetooth-1-0-qti
