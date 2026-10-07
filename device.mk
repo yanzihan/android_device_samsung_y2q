@@ -35,6 +35,21 @@ PRODUCT_AAPT_PREBUILT_DPI := xxhdpi xhdpi hdpi
 TARGET_SCREEN_HEIGHT := 3200
 TARGET_SCREEN_WIDTH := 1440
 
+# Density mapping per panel resolution
+# The S20+ panel cannot do 1440x3200 above 60 Hz, so the build is set up to run
+# at 1080x2400 @ 120 Hz by default (see the kernel timing-default change).  The
+# framework density has to follow the resolution or the UI scales wrongly:
+#   density x dpi scaling -> logical width
+#   600 @ 1440 wide = 384 dp     (correct for WQHD+)
+#   600 @ 1080 wide = 288 dp     (too narrow - everything would shrink)
+#   450 @ 1080 wide = 384 dp     (correct for FHD+)
+# This mirrors device/samsung/universal9830-common's approach for y2s, which maps
+# 1440x3200 -> 600 and 1080x2400 -> 450 on the same panel family.
+# The file name carries this panel's stable display id, read from
+# `dumpsys SurfaceFlinger` -> "Display 4630947232161729153".
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/display/display_id_4630947232161729153.xml:$(TARGET_COPY_OUT_VENDOR)/etc/displayconfig/display_id_4630947232161729153.xml
+
 # Camera
 $(call soong_config_set,samsungCameraVars,extra_ids,52)
 
