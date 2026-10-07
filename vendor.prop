@@ -3,4 +3,4 @@ bluetooth.device.default_name=Galaxy S20+
 
 # Fingerprint
 ro.vendor.fingerprint.type=udfps
-ro.vendor.fingerprint.sensor_location=720|2500|150
+ro.vendor.fingerprint.sensor_location=720|2500|136
