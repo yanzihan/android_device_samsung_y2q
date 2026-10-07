@@ -17,11 +17,17 @@
 #   "udfps"                  -> UNDER_DISPLAY_ULTRASONIC
 #   "udfps_optical"          -> UNDER_DISPLAY_OPTICAL
 #   "side"                   -> POWER_BUTTON
-# y2q has an under-display optical sensor, and leaving this unset made the HAL
-# report REAR - so the framework never took the UDFPS path for this device.
-# (This property was accidentally dropped from this file during an earlier
-#  cleanup that removed duplicate sysprops; r8q has it as udfps_optical.)
-ro.vendor.fingerprint.type=udfps_optical
+# y2q's sensor is Qualcomm QBT2000 - the 3D Sonic *ultrasonic* under-display
+# sensor used across the whole S20 family - so the value is "udfps"
+# (UNDER_DISPLAY_ULTRASONIC), NOT "udfps_optical".  Corroborated by:
+#   - kernel driver CONFIG_SENSORS_QBT2000=y, drivers/fingerprint/qbt2000_*.c
+#   - /sys/class/fingerprint/fingerprint/name = QBT2000, vendor = QCOM
+#   - y2s, the S20+ Exynos counterpart, sets exactly this value in its own
+#     vendor.prop
+# r8q (S20 FE) uses udfps_optical, which is what led to the wrong value here.
+# Leaving it unset made the HAL report REAR instead of any UDFPS type, so the
+# framework never took the under-display path.
+ro.vendor.fingerprint.type=udfps
 
 # ---------------------------------------------------------------------------
 # NFC (NXP SN100U)
