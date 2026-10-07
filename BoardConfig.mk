@@ -64,6 +64,16 @@ WIFI_DRIVER_STATE_OFF :=
 WIFI_DRIVER_STATE_ON :=
 WPA_SUPPLICANT_VERSION :=
 
+# *_PRIVATE_LIB_EVENT pulls in -DANDROID_LIB_EVENT, which makes wpa_supplicant
+# call wpa_driver_nl80211_driver_event().  That symbol is only implemented by the
+# Qualcomm driver_cmd_nl80211.c; with BOARD_WLAN_DEVICE := bcmdhd it is undefined
+# and wpa_supplicant fails to link:
+#   ld.lld: error: undefined symbol: wpa_driver_nl80211_driver_event
+# sm8250-common sets the wpa_supplicant one unconditionally (correct for qcwcn),
+# and y2s - the other bcmdhd device in this tree - sets neither.
+BOARD_WPA_SUPPLICANT_PRIVATE_LIB_EVENT :=
+BOARD_HOSTAPD_PRIVATE_LIB_EVENT :=
+
 # UDFPS
 TARGET_ADDITIONAL_GRALLOC_10_USAGE_BITS := 0x2000U | 0x400000000LL
 TARGET_USES_FOD_ZPOS := true
