@@ -1,5 +1,29 @@
 # Device-specific proprietary files - from Samsung package version G9860ZHUCHZE1 (HK)
 
+# Bluetooth (Broadcom BCM4375 firmware)
+vendor/firmware/bcm4375B1_murata.hcd
+
+# Wi-Fi (Broadcom BCM4375 / bcmdhd)
+# The kernel is built with CONFIG_BCM4375 + CONFIG_BCM_DHD_WLAN and loads these
+# via the bcmdhd (dhd) module.  The nvram.txt_* set is the per-module/batch
+# calibration data consumed by the driver's concate_nvram_by_vid() logic.
+vendor/firmware/bcmdhd_clm.blob
+vendor/firmware/bcmdhd_mfg.bin_b1
+vendor/firmware/bcmdhd_mon.bin_b1
+vendor/firmware/bcmdhd_sta.bin_b1
+vendor/firmware/nvram.txt_1rh_es11_b0
+vendor/firmware/nvram.txt_1rh_es12_b0
+vendor/firmware/nvram.txt_1rh_es13_b0
+vendor/firmware/nvram.txt_1rh_es32_b0
+vendor/firmware/nvram.txt_1rh_es41_b1
+vendor/firmware/nvram.txt_1rh_es42_b1
+vendor/firmware/nvram.txt_1rh_es43_b1
+vendor/firmware/nvram.txt_CS01_semco_b1
+vendor/firmware/nvram.txt_ES00_semco_b0
+vendor/firmware/nvram.txt_ES01_semco_b0
+vendor/firmware/nvram.txt_ES02_semco_b0
+vendor/firmware/nvram.txt_ES03_semco_b0
+
 # ACDB data
 vendor/etc/acdbdata/adsp_avs_config.acdb
 vendor/etc/audconf/OPEN/Bluetooth_cal.acdb

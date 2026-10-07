@@ -79,11 +79,32 @@ PRODUCT_COPY_FILES += \
 
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += \
-    $(LOCAL_PATH)
+    $(LOCAL_PATH) \
+    hardware/broadcom/libbt
 
 # UDFPS
 $(call soong_config_set,samsungUdfpsVars,udfps_zorder,0x20000000u)
 $(call soong_config_set,surfaceflinger,udfps_lib,//hardware/samsung/fingerprint:libudfps_extension.samsung)
+
+# Wi-Fi
+# Broadcom BCM4375 via bcmdhd (see BoardConfig.mk).  wifi_brcm.rc replaces the
+# Qualcomm wifi_qcom.rc inherited from sm8250-common.
+PRODUCT_PACKAGES += \
+    android.hardware.wifi-service \
+    hostapd \
+    wpa_supplicant \
+    wpa_supplicant.conf \
+    wifi_brcm.rc \
+    wifi_sec.rc \
+    WiFiOverlayDevice
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf \
+    $(LOCAL_PATH)/configs/wifi/wpa_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant_overlay.conf \
+    $(LOCAL_PATH)/configs/wifi/bcmdhd_sta.bin:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/bcmdhd_sta.bin \
+    $(LOCAL_PATH)/configs/wifi/nvram_net.txt:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/nvram_net.txt
+
+$(call soong_config_set_bool,wpa_supplicant_8,board_wlan_bcmdhd_sae,true)
 
 # Inherit y2q blobs
 $(call inherit-product, vendor/samsung/y2q/y2q-vendor.mk)

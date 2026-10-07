@@ -39,6 +39,31 @@ TARGET_BOARD_INFO_FILE := $(DEVICE_PATH)/board-info.txt
 # Properties
 TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
 
+# Wi-Fi
+# y2q uses a Broadcom BCM4375 (Murata module), NOT the Qualcomm QCA6390 that
+# device/samsung/sm8250-common (shared with r8q) is configured for.  The stock
+# firmware ships bcmdhd_* firmware + vendor/etc/init/wifi_brcm.rc, and the kernel
+# is built with CONFIG_BCM4375 / CONFIG_BCM_DHD_WLAN, so the userspace stack has
+# to be switched over here.  These use := to override the qcwcn values inherited
+# from BoardConfigCommon.mk (which also uses :=), leaving r8q unaffected.
+BOARD_WLAN_DEVICE := bcmdhd
+BOARD_WPA_SUPPLICANT_DRIVER := NL80211
+BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_bcmdhd
+BOARD_HOSTAPD_DRIVER := NL80211
+BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_bcmdhd
+WIFI_AVOID_IFACE_RESET_MAC_CHANGE := true
+WIFI_FEATURE_HOSTAPD_11AX := true
+WIFI_HIDL_FEATURE_AWARE := true
+WIFI_HIDL_FEATURE_DUAL_INTERFACE := true
+
+# The inherited qcwcn-only options must be cleared: bcmdhd is a loadable module
+# driven by wifi_brcm.rc, it has no /dev/wlan state node and no qca_cld3 driver.
+WIFI_DRIVER_DEFAULT :=
+WIFI_DRIVER_STATE_CTRL_PARAM :=
+WIFI_DRIVER_STATE_OFF :=
+WIFI_DRIVER_STATE_ON :=
+WPA_SUPPLICANT_VERSION :=
+
 # UDFPS
 TARGET_ADDITIONAL_GRALLOC_10_USAGE_BITS := 0x2000U | 0x400000000LL
 TARGET_USES_FOD_ZPOS := true
