@@ -4,3 +4,22 @@ bluetooth.device.default_name=Galaxy S20+
 # Fingerprint
 ro.vendor.fingerprint.type=udfps
 ro.vendor.fingerprint.sensor_location=720|2500|136
+
+# NFC (NXP SN100U)
+# Values copied verbatim from the stock vendor/build.prop of G9860ZHUCHZE1.
+# y2q's NFC part is an NXP SN100U - NOT the Samsung SLSI sec_s3nsen4 used by the
+# Exynos y2s, and NOT what init.y2q.rc's r8q-derived SM-G78xx blocks assume
+# (those set ro.vendor.nfc.feature.chipname to "SLSI").
+# Stock also gates this on `on property:ro.boot.hardware.sku=sn110t` in
+# init.target.rc, with "SLSI" for s3fwrn5; setting the SN100U value directly is
+# equivalent for this device and avoids depending on the SKU being reported.
+ro.vendor.nfc.feature.chipname=NXP_SN100U
+ro.vendor.nfc.support.advancedsetting=true
+ro.vendor.nfc.support.autoselect=true
+ro.vendor.nfc.support.defaultaid=false
+ro.vendor.nfc.support.nonaid=false
+ro.vendor.nfc.support.othercategory=true
+ro.vendor.nfc.support.uicc=true
+ro.vendor.nfc.support.ese=true
+ro.vendor.nfc.info.antpos=1
+ro.camera.notify_nfc=1

@@ -1,0 +1,11 @@
+//
+// SPDX-FileCopyrightText: The LineageOS Project
+// SPDX-License-Identifier: Apache-2.0
+//
+
+prebuilt_etc {
+    name: "libbt_vndcfg.txt",
+    src: "libbt_vndcfg.txt",
+    sub_dir: "bluetooth",
+    vendor: true,
+}

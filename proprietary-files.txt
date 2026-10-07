@@ -198,9 +198,22 @@ vendor/lib64/vendor.qti.hardware.cacert@1.0.so
 vendor/lib64/vendor.qti.hardware.qccsyshal@1.0.so
 vendor/lib64/vendor.samsung.hardware.gnss@2.0.so
 
-# NFC (SLSI)
+# NFC (NXP SN100U)
+# y2q uses an NXP SN100U, not the Samsung SLSI sec_s3nsen4 that the Exynos y2s
+# tree ships.  The empty "# NFC (SLSI)" section that used to be here was wrong
+# for this device.  Service binary is nxp.android.hardware.nfc@1.2-service
+# (verified against the stock G9860ZHUCHZE1 vendor image).
+vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
+vendor/etc/init/nxp.android.hardware.nfc@1.2-service.rc
+vendor/etc/vintf/manifest/nxp.android.hardware.nfc@1.2-service.xml
+vendor/lib64/nfc_nci_nxpsn.so
+vendor/lib64/vendor.samsung.hardware.nfc@2.0.so
+vendor/lib64/ese_spi_nxp.so
+vendor/etc/libnfc-nxp.conf
+vendor/etc/nfc/libnfc-nxp_RF.conf
 
 # NFC (firmware)
+vendor/firmware/nfc/libsn100u_fw.so
 
 # RIL-SEC - from dm2qxxx-user 14 UP1A.231005.007 S9160ZHS5CYA1 release-keys
 

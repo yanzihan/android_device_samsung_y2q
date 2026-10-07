@@ -1,0 +1,14 @@
+# Broadcom BCM4375 bring-up config for y2q (Qualcomm sm8250).
+#
+# BLUETOOTH_UART_DEVICE_PORT: y2q wires the BT controller to qupv3_se6_4uart
+# (4-wire, with RTS/CTS) in the kernel dts; Qualcomm's msm_geni_serial registers
+# those as /dev/ttyHS0.  Do NOT copy y2s's value - that tree is Exynos and uses
+# /dev/ttySAC1.
+BLUETOOTH_UART_DEVICE_PORT = "/dev/ttyHS0"
+FW_PATCHFILE_LOCATION = "/vendor/firmware"
+FW_PATCH_SETTLEMENT_DELAY_MS = 0
+UART_TARGET_BAUD_RATE = 3000000
+LPM_IDLE_TIMEOUT_MULTIPLE = 5
+SCO_USE_I2S_INTERFACE = TRUE
+SCO_I2SPCM_IF_ROLE = 0
+VENDOR_LIB_CONF_FILE = "/vendor/etc/bluetooth/bt_vendor.conf"

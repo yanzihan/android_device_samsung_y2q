@@ -159,24 +159,8 @@ on post-fs-data && property:ro.csc.sales_code=DSA
     rmdir /mnt/temp
 
 # Device specific properties
-on property:ro.boot.em.model=SM-G780G
-    setprop ro.telephony.default_network "9,9"
-    setprop bluetooth.device.default_name "Galaxy S20 FE"
-
-on property:ro.boot.em.model=SM-G781B
-    setprop ro.boot.product.hardware.sku "s3fwrn5"
-    setprop ro.vendor.nfc.feature.chipname "SLSI"
-    setprop ro.telephony.default_network "33,33"
-    setprop bluetooth.device.default_name "Galaxy S20 FE 5G"
-
-on property:ro.boot.em.model=SM-G781N
-    setprop ro.boot.product.hardware.sku "s3fwrn5"
-    setprop ro.vendor.nfc.feature.chipname "SLSI"
-    setprop ro.telephony.default_network "33,33"
-    setprop bluetooth.device.default_name "Galaxy S20 FE 5G"
-
-on property:ro.boot.em.model=SM-G7810
-    setprop ro.boot.product.hardware.sku "s3fwrn5"
-    setprop ro.vendor.nfc.feature.chipname "SLSI"
-    setprop ro.telephony.default_network "33,33"
-    setprop bluetooth.device.default_name "Galaxy S20 FE 5G"
+# NOTE: the SM-G780G / SM-G781B / SM-G781N / SM-G7810 blocks that used to live
+# here were inherited from r8q (S20 FE).  They never match on y2q (SM-G9860) and
+# were actively misleading: they set ro.boot.product.hardware.sku="s3fwrn5" and
+# ro.vendor.nfc.feature.chipname="SLSI", whereas y2q's NFC part is an NXP SN100U.
+# The correct chipname is set in vendor.prop (NXP_SN100U).

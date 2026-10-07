@@ -39,6 +39,21 @@ TARGET_BOARD_INFO_FILE := $(DEVICE_PATH)/board-info.txt
 # Properties
 TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
 
+# Bluetooth
+# y2q uses Broadcom BCM4375 over HS-UART (qupv3_se6_4uart in the kernel dts), the
+# same controller family as y2s but on a Qualcomm SoC.  Stock ships
+# android.hardware.bluetooth@1.0-service + libbt-vendor.so + bcm4375B1_murata.hcd,
+# NOT the Qualcomm QTI BT stack that sm8250-common is configured for
+# (android.hardware.bluetooth@1.0-service-qti + htbtfw20.tlv/htnv20.bin).
+# BOARD_HAVE_BLUETOOTH_BCM is what makes hardware/broadcom/libbt build
+# libbt-vendor; without it the AOSP BT service has no vendor lib to talk to.
+BOARD_HAVE_BLUETOOTH := true
+BOARD_HAVE_BLUETOOTH_BCM := true
+# NOTE: do NOT reuse y2s's bluetooth/libbt_vndcfg.txt - it sets
+# BLUETOOTH_UART_DEVICE_PORT = "/dev/ttySAC1", which is the Exynos UART name.
+# Qualcomm's msm_geni_serial registers as /dev/ttyHS*, hence our own file.
+BOARD_CUSTOM_BT_CONFIG := $(DEVICE_PATH)/bluetooth/libbt_vndcfg.txt
+
 # Wi-Fi
 # y2q uses a Broadcom BCM4375 (Murata module), NOT the Qualcomm QCA6390 that
 # device/samsung/sm8250-common (shared with r8q) is configured for.  The stock
