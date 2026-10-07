@@ -314,3 +314,21 @@ vendor/lib64/libsecril-client.so
 
 # Sensors (TMD4907 ALS/PS)
 vendor/etc/sensors/config/kona_tmd4907_0.json
+
+# Camera image encoders (software JPEG / MPEG4) and the UniHAL image-processing
+# stack they depend on.  These are dlopen()ed by name at runtime from the camera
+# feature2 framework, so they never appear in any DT_NEEDED list and were missed
+# when the camera blobs were extracted.  Without them CHI cannot build the JPEG
+# feature instance and every capture/snapshot stream fails:
+#   E chifeature2featurepool.cpp:462 CreateFeatureInstance() Fail to create feature instance for JPEG
+#   E chifeature2graphmanager.cpp:159 Initialize() Skipping feature graph RTBayer2YUVSWMFJPEG
+#   E chifeature2generic.cpp:831 DoStreamNegotiation() Could not extract snapshot stream
+# which surfaced as "setting up the camera session failed" for the 0.6x/0.4x/front
+# cameras and a camera provider process pinned at 18-40% CPU.
+# Dependency closure computed recursively from DT_NEEDED of the two entry points.
+vendor/lib64/libjpegencoder_sw.unifunc.so
+vendor/lib64/libMpeg4SwEncoder.so
+vendor/lib64/libimgproc_sw.unifunc.so
+vendor/lib64/unihal_android.so
+vendor/lib64/unihal_cutils.so
+vendor/lib64/libgrallocusage.so

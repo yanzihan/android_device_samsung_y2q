@@ -223,8 +223,17 @@
 
     <!-- The type of the light sensor to be used by the display framework for things like
          auto-brightness. If unset, then it just gets the default sensor of type TYPE_LIGHT. -->
-    <!-- y2q's sensors HAL (vendor/lib64/sensors.ssc.so) registers this sensor as
-         "com.samsung.sensor.auto_brightness".  The inherited value from r8q,
+    <!-- Use the standard AOSP light sensor type.
+         History: the inherited value was r8q's "com.samsung.sensor.physical_light",
+         which does not exist on y2q (the framework reported an empty sensor name and
+         every BrightnessEvent carried lux=-1.0).  It was then pointed at y2q's
+         "com.samsung.sensor.auto_brightness", which IS registered by the HAL
+         (dumpsys sensorservice lists it) but the framework still could not resolve
+         it - dumpsys display kept showing an empty name.  Android's own
+         "android.sensor.light" (the TMD4907 ambient light sensor) is present and is
+         exactly what org.lineageos.platform.internal.display.AmbientLuxObserver
+         subscribes to with result=OK, so use that.
+         Original r8q note follows:  The inherited value from r8q,
          "com.samsung.sensor.physical_light", does not exist on this device - the
          HAL exposes no such type - so the framework failed to resolve the ambient
          light sensor: dumpsys display showed
@@ -232,7 +241,7 @@
          with an empty name, and every BrightnessEvent carried lux=-1.0 with
          strat=FallbackBrightnessStrategy, i.e. auto-brightness never had any data.
          Verified against the strings in the shipped sensors.ssc.so blob. -->
-    <string name="config_displayLightSensorType">com.samsung.sensor.auto_brightness</string>
+    <string name="config_displayLightSensorType">android.sensor.light</string>
 
     <!-- ================================================================
          IMS / VoLTE / VoWiFi  (see also the Telephony overlay, which sets

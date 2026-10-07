@@ -1,4 +1,15 @@
-service vendor.nfc_hal_service /vendor/bin/hw/android.hardware.nfc-service.nxp
+# NOTE: the binary here must be the one this device actually ships.  device.mk
+# deliberately does NOT build android.hardware.nfc-service.nxp (that is r8q's
+# AOSP SNxxx service), because y2q uses the Samsung/NXP prebuilt
+# nxp.android.hardware.nfc@1.2-service - which is also what the stock firmware
+# runs (/vendor/bin/hw/nxp.android.hardware.nfc@1.2-service) and what implements
+# the vendor.samsung.hardware.nfc@2.0::ISehNfc extension.
+#
+# With the old path the service could never start ("Could not find
+# ...INfc/default"), and because the prebuilt's own .rc declares the service
+# `disabled` with no trigger of its own, nothing started the HAL at all - NFC
+# was dead while com.android.nfc sat there retrying.
+service vendor.nfc_hal_service /vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
     disabled
     class early_hal
     user nfc
