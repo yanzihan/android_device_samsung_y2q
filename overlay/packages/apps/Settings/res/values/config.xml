@@ -22,4 +22,13 @@
 <resources>
     <!-- The radius of the enrollment progress bar, in dp -->
     <integer name="config_udfpsEnrollProgressBar" translatable="false">70</integer>
+
+    <!-- Whether to show min refresh rate in display settings.
+         LineageOS defaults this to false, which leaves the "smooth display"
+         (peak refresh rate) toggle as the only refresh-rate control.  Enabling it
+         replaces that toggle with the proper "minimum refresh rate" list picker
+         (120/96/60/48 Hz), exactly as device/samsung/sm8350-common does for p3q.
+         The panel exposes all four rates in the 1080x2400 and 720x1600 mode
+         groups, so the picker has a real effect there. -->
+    <bool name="config_show_min_refresh_rate_switch">true</bool>
 </resources>
