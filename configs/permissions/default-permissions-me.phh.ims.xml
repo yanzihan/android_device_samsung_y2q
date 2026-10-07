@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Default (pre-granted) permissions for PhhIms.
+
+    me.phh.ims declares android.permission.RECORD_AUDIO, which is a *dangerous*
+    permission.  The app has no launcher icon and no UI, so there is no way for
+    the user (or anything else) to grant it at runtime.  Without a pre-grant the
+    IMS stack registers and calls connect, but capture comes back empty - the
+    classic "the other side cannot hear me" symptom, which is very easy to
+    misdiagnose as the Samsung audio-HAL routing problem.
+
+    Shared-uid inheritance is NOT a safe assumption here: framework-res declares
+    the RECORD_AUDIO permission but does not itself request it.
+
+    Read by DefaultPermissionGrantPolicy, which loads <root>/etc/default-permissions
+    (and the vendor/odm/product/system_ext/oem variants).
+-->
+<exceptions>
+    <exception package="me.phh.ims">
+        <permission name="android.permission.RECORD_AUDIO" fixed="false"/>
+    </exception>
+</exceptions>

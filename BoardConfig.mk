@@ -38,6 +38,8 @@ TARGET_BOARD_INFO_FILE := $(DEVICE_PATH)/board-info.txt
 
 # Properties
 TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
+# IMS bring-up overrides (persist.dbg.*_avail_ovr) live in system.prop
+TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
 
 # Bluetooth
 # y2q uses Broadcom BCM4375 over HS-UART (qupv3_se6_4uart in the kernel dts), the

@@ -1,0 +1,26 @@
+#
+# System properties for y2q (Galaxy S20+ 5G, SM-G9860, SM8250)
+#
+
+# ---------------------------------------------------------------------------
+# IMS bring-up overrides
+#
+# These force the telephony framework to advertise VoLTE / VT / VoWiFi as
+# available regardless of what the carrier reports.  They exist so that the
+# UI toggles and ImsResolver come up while bringing the userspace IMS stack
+# (packages/apps/PhhIms) online, and are NOT a substitute for correct
+# CarrierConfig - see overlay/packages/apps/CarrierConfig/res/xml/vendor.xml.
+#
+# They MUST be written as integers: system/sepolicy/private/property_contexts
+# labels persist.dbg.{volte,vt,wfc}_avail_ovr as "exact int", so a value of
+# "true" is rejected by init and the override silently does nothing.
+#
+# Only the three properties that actually exist in AOSP are set.  The upstream
+# PhhIms README also suggests persist.dbg.allow_ims_off, but there is no such
+# property anywhere in this tree's property_contexts (a grep for persist.dbg
+# returns exactly the twelve volte/vt/wfc *_ovr entries), so it is omitted
+# rather than shipped as dead config.
+# ---------------------------------------------------------------------------
+persist.dbg.volte_avail_ovr=1
+persist.dbg.vt_avail_ovr=0
+persist.dbg.wfc_avail_ovr=1

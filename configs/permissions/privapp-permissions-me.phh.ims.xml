@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Privileged permissions for PhhIms (packages/apps/PhhIms).
+
+    me.phh.ims is built as a privileged, platform-signed coreApp with
+    sharedUserId="android.uid.system", so it needs privileged permissions
+    allowlisted here or the platform will refuse to grant them (and, with
+    PRODUCT_ENFORCE_RRO / ro.control_privapp_permissions=enforce, will refuse to
+    boot).
+
+    READ_PRIVILEGED_PHONE_STATE and MODIFY_PHONE_STATE are what let it track
+    subscription/IMS registration state; the remaining permissions are the
+    non-privileged ones it also declares in its manifest, listed here only for
+    completeness of the allowlist.
+-->
+<permissions>
+    <privapp-permissions package="me.phh.ims">
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+    </privapp-permissions>
+</permissions>

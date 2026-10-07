@@ -233,4 +233,54 @@
          strat=FallbackBrightnessStrategy, i.e. auto-brightness never had any data.
          Verified against the strings in the shipped sensors.ssc.so blob. -->
     <string name="config_displayLightSensorType">com.samsung.sensor.auto_brightness</string>
+
+    <!-- ================================================================
+         IMS / VoLTE / VoWiFi  (see also the Telephony overlay, which sets
+         config_ims_mmtel_package=me.phh.ims)
+         ================================================================
+
+         AOSP defaults every one of these to false/empty, so with no vendor IMS
+         stack the device has no IMS capability at all and every call falls back
+         to circuit-switched.  That is unusable on carriers that have already
+         shut 2G/3G down.
+
+         PhhIms (packages/apps/PhhIms) provides the ImsService/MmTel provider in
+         userspace and opens the SIP/IMS path; these flags are what let the
+         telephony framework advertise VoLTE/VoWiFi to the UI and to CarrierConfig.
+
+         Note these are the "hard" device/carrier capability gates: with them
+         true the feature is still gated by carrier provisioning and
+         CarrierConfig, which is the intended layering. -->
+
+    <bool name="config_device_volte_available">true</bool>
+    <bool name="config_carrier_volte_available">true</bool>
+
+    <!-- Video telephony is not implemented by PhhIms (voice + SMS are its
+         focus), so leave VT at the AOSP default. -->
+    <bool name="config_device_vt_available">false</bool>
+    <bool name="config_carrier_vt_available">false</bool>
+
+    <bool name="config_device_wfc_ims_available">true</bool>
+    <bool name="config_carrier_wfc_ims_available">true</bool>
+
+    <!-- Whether to use voip audio mode for ims calls.
+         Samsung's audio HAL treats MODE_IN_CALL as a modem/baseband call path;
+         for a userspace IMS stack the capture stream must stay on the real
+         microphone path, which is what voice-communication mode gives.  If
+         calls connect but the microphone is silent, this is the first knob to
+         revisit (set false to restore the AOSP default). -->
+    <bool name="config_use_voip_mode_for_ims">true</bool>
+
+    <!-- PhhIms routes USSD/MMI over CS when IMS UT/USSD is unavailable, so leave
+         this at the AOSP default. -->
+    <bool name="config_allow_ussd_over_ims">false</bool>
+
+    <!-- IWLAN (VoWiFi data service) and QNS (qualified networks service).
+         The telephony framework binds these by package name; the matching
+         PRODUCT_PACKAGES entries are in device.mk.  Both default to empty in
+         AOSP, which disables the whole WLAN/IMS data path even when the device
+         flags above are true. -->
+    <string name="config_wlan_data_service_package" translatable="false">com.google.android.iwlan</string>
+    <string name="config_wlan_network_service_package" translatable="false">com.google.android.iwlan</string>
+    <string name="config_qualified_networks_service_package" translatable="false">com.android.telephony.qns</string>
 </resources>

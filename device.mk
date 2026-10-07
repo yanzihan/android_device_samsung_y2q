@@ -107,6 +107,33 @@ PRODUCT_PACKAGES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/sensors/hals.conf:$(TARGET_COPY_OUT_VENDOR)/etc/sensors/hals.conf
 
+# IMS / VoLTE / VoWiFi
+# Samsung's IMS stack is closed source and the Qualcomm IMS blobs from the stock
+# firmware are not packaged in this tree, so there is no vendor ImsService at all
+# - config_ims_mmtel_package would otherwise resolve to nothing and every call
+# would fall back to circuit-switched.  PhhIms supplies a userspace SIP/IMS stack
+# implementing android.telephony.ims.ImsService; the overlays that bind it and
+# advertise VoLTE/VoWiFi live in overlay/.
+# Iwlan and QualifiedNetworksService are bound by package name from the
+# framework overlay (config_wlan_data_service_package /
+# config_qualified_networks_service_package); without them the WLAN/IMS data path
+# never comes up even for VoLTE-only use.
+PRODUCT_PACKAGES += \
+    PhhIms \
+    Iwlan \
+    QualifiedNetworksService
+
+# Privileged permissions required by PhhIms (it runs as android.uid.system)
+#   privapp-permissions: required because LineageOS sets
+#     ro.control_privapp_permissions=enforce unconditionally, so every
+#     signature|privileged permission a privileged app requests must be allowlisted.
+#   default-permissions: pre-grants RECORD_AUDIO.  It is a *dangerous* permission
+#     and the app has no UI, so nothing can grant it at runtime; without this the
+#     call connects but the far end cannot hear anything.
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/configs/permissions/privapp-permissions-me.phh.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-me.phh.ims.xml \
+    $(LOCAL_PATH)/configs/permissions/default-permissions-me.phh.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/default-permissions-me.phh.ims.xml
+
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += \
     $(LOCAL_PATH) \

@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!--
+    CarrierConfig vendor overlay for y2q (Galaxy S20+ 5G, SM-G9860, SM8250).
+
+    Read by DefaultCarrierConfigService AFTER whichever per-carrier asset matched
+    (see the comment in the AOSP default vendor.xml), so values here win over both
+    the carrier assets and the platform defaults.
+
+    Filtered by `device` (matches Build.DEVICE) rather than MCC/MNC on purpose:
+    a device filter is the only way to turn the capability on for *every* SIM
+    without enumerating carriers.  When per-operator behaviour is understood, add
+    additional <carrier_config mcc="..." mnc="..."> blocks ABOVE this one - later
+    matching fragments override earlier ones.
+
+    Every key below was checked to exist in this tree's
+    frameworks/base/telephony/java/android/telephony/CarrierConfigManager.java.
+    Deliberately NOT used:
+      - carrier_volte_provisioned_required_bool : does not exist anywhere
+        (the real name is carrier_volte_provisioning_required_bool)
+      - carrier_volte_provisioning_required_bool : exists but is @Deprecated in
+        Android 16 in favour of the PersistableBundle key
+        mmtel_requires_provisioning_bundle, so relying on it is fragile.
+        Provisioning is therefore left at the platform default for now.
+      - carrier_wfc_ims_roaming_enabled_bool / carrier_send_sms_over_ims_bool /
+        carrier_ims_conference_call_available_bool : listed by the upstream PhhIms
+        README but absent from Android 16; they would be silently ignored.
+-->
+<carrier_config_list>
+    <carrier_config device="y2q">
+        <!-- VoLTE.  Without this the framework will not offer enhanced 4G / VoLTE
+             even though the device-level capability flags are true, and calls
+             fall back to circuit-switched. -->
+        <boolean name="carrier_volte_available_bool" value="true"/>
+        <boolean name="editable_enhanced_4g_lte_bool" value="true"/>
+
+        <!-- Let VoLTE come up even when the carrier exposes no WFC provisioning
+             channel; PhhIms does its own SIP registration. -->
+        <boolean name="carrier_volte_override_wfc_provisioning_bool" value="true"/>
+
+        <!-- Surface IMS registration state in the UI - the main diagnostic for
+             whether the userspace stack actually registered. -->
+        <boolean name="show_ims_registration_status_bool" value="true"/>
+
+        <!-- VoWiFi / WFC kept OFF for now: it additionally needs Iwlan + QNS to
+             attach a real IWLAN IMS bearer, so enabling it before VoLTE is proven
+             only adds moving parts.  Flip to true once VoLTE works. -->
+        <boolean name="carrier_wfc_ims_available_bool" value="false"/>
+        <boolean name="editable_wfc_mode_bool" value="false"/>
+    </carrier_config>
+</carrier_config_list>
