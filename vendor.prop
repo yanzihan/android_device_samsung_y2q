@@ -9,6 +9,21 @@
 # device are therefore NOT set in sm8250-common at all - each device sets its own.
 
 # ---------------------------------------------------------------------------
+# Fingerprint
+#
+# The HAL maps this property to FingerprintSensorType
+# (hardware/samsung/aidl/fingerprint/Fingerprint.cpp:50-63):
+#   "" / "default" / "rear"  -> REAR
+#   "udfps"                  -> UNDER_DISPLAY_ULTRASONIC
+#   "udfps_optical"          -> UNDER_DISPLAY_OPTICAL
+#   "side"                   -> POWER_BUTTON
+# y2q has an under-display optical sensor, and leaving this unset made the HAL
+# report REAR - so the framework never took the UDFPS path for this device.
+# (This property was accidentally dropped from this file during an earlier
+#  cleanup that removed duplicate sysprops; r8q has it as udfps_optical.)
+ro.vendor.fingerprint.type=udfps_optical
+
+# ---------------------------------------------------------------------------
 # NFC (NXP SN100U)
 #
 # r8q and y2q are both on the NXP SN100U, but the S20+/S21U (SM-G9860/SM-G9980)
