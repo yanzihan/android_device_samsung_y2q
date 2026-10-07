@@ -53,6 +53,22 @@ vendor/firmware/cs40l25a_exc.bin
 vendor/firmware/dax_param.bin
 
 # Camera
+# Samsung 3A (AEC/AWB/AF/PDAF) algorithm libraries.  These are dlopen()ed by name
+# at runtime, so they never show up as DT_NEEDED and were missed when the camera
+# blobs were ported.  Without them AEC fails to initialise:
+#   E SS_3A : ERROR: AEC: LoadAlgorithmAndSymbols: 349:
+#             R12QS_libTsAe.so loading is failed : LibHandle is NULL!
+# which aborts every camera pipeline and makes the camera provider process die.
+# R12QS = SM-G9860 (main cameras), E10QS = front cameras.
+vendor/lib64/R12QS_libTsAe.so
+vendor/lib64/R12QS_libTsAf.so
+vendor/lib64/R12QS_libTsAwb.so
+vendor/lib64/R12QS_libTsPdafm.so
+vendor/lib64/E10QS_libTsAeFront.so
+vendor/lib64/E10QS_libTsAfFront.so
+vendor/lib64/E10QS_libTsAwbFront.so
+vendor/lib64/E10QS_libTsPdafm_Front.so
+vendor/lib64/libcamerapostproc.so
 vendor/lib64/libDLInterface.camera.samsung.so
 vendor/lib64/libIMUSensor.so
 vendor/lib64/libMoonVerifier_v1.camera.samsung.so
