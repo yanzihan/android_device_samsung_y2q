@@ -79,10 +79,15 @@ PRODUCT_PACKAGES += \
 # so android.hardware.nfc-service.nxp (used by r8q) is deliberately NOT here.
 # The config-file destinations match stock: /vendor/etc/libnfc-nxp.conf and
 # /vendor/etc/nfc/libnfc-nxp_RF.conf.
+# libnfc_trim_shim supplies android::base::Trim(std::string const&), which
+# Android 14 removed from libbase but the stock NXP blobs still need.  Without
+# it the NFC HAL cannot link at runtime and init never registers the service.
+# See nfc-shim/trim_shim.cpp.
 PRODUCT_PACKAGES += \
     nxp.android.hardware.nfc@1.2-service \
     com.android.nfc_extras \
-    Tag
+    Tag \
+    libnfc_trim_shim
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/nfc/libnfc-nxp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf \

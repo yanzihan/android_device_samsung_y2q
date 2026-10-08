@@ -1,0 +1,26 @@
+// Restores android::base::Trim(std::string const&), which Android 14 removed from
+// libbase but the stock NXP NFC blobs were still linked against.
+// See trim_shim.cpp for the full explanation.
+cc_library_shared {
+    name: "libnfc_trim_shim",
+    owner: "samsung",
+    vendor: true,
+
+    srcs: [
+        "trim_shim.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libbase",
+        "libc++",
+    ],
+
+    strip: {
+        none: true,
+    },
+}
