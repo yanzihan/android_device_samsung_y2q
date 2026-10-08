@@ -14,6 +14,18 @@ service vendor.nfc_hal_service /vendor/bin/hw/nxp.android.hardware.nfc@1.2-servi
     class early_hal
     user nfc
     group nfc drmrpc system
+    # nfc_nci_nxpsn.so references android::base::Trim(std::string const&), which
+    # Android 14 removed from libbase.  A shim library supplies it, but simply
+    # installing the shim is not enough: the dynamic linker only searches libraries
+    # that are already loaded, and nothing lists the shim in its DT_NEEDED, so the
+    # symbol stayed unresolved and the HAL died at startup with
+    #   CANNOT LINK EXECUTABLE ... cannot locate symbol
+    #       "_ZN7android4base4TrimERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
+    #       referenced by "/vendor/lib64/nfc_nci_nxpsn.so"
+    # Preloading it puts the definition in the link map before the blob is
+    # dlopen()ed.  Verified: with this preload the binary starts instead of failing
+    # to link.
+    LD_PRELOAD=/vendor/lib64/libnfc_trim_shim.so
 
 service vendor.sec_nfc_hal_service /vendor/bin/hw/android.hardware.nfc-service.sec-sku
     disabled
