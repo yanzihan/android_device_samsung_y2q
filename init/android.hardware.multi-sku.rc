@@ -43,6 +43,9 @@ service vendor.secure_element_hal_service /vendor/bin/hw/android.hardware.secure
     class early_hal
     user secure_element
     group secure_element
+    # ese_spi_nxp.so needs the same android::base::Trim(std::string const&) that
+    # Android 14 removed from libbase; see the note on the NFC service above.
+    LD_PRELOAD=/vendor/lib64/libnfc_trim_shim.so
 
 service gto_secure_element_aidl_service /vendor/bin/hw/android.hardware.secure_element-service.thales-sku
     disabled
