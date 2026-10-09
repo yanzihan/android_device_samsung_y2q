@@ -6,6 +6,7 @@ work.  Apply them from the root of the corresponding `repo` project:
     cd system/libbase                && git am ../../device/samsung/y2q/patches/libbase-restore-Trim-overload.patch
     cd packages/apps/PhhIms          && git am ../../device/samsung/y2q/patches/phhims-sip-invite-fixes.patch
     cd hardware/qcom-caf/sm8250/audio && git am ../../device/samsung/y2q/patches/audio-hal-adev-set-mode-lock.patch
+    cd hardware/samsung             && git am ../../device/samsung/y2q/patches/camera-provider-system-group.patch
 
 `git apply` works too if the project has local commits on top.
 
@@ -86,3 +87,22 @@ took the dialog down.  It now answers 200 with the session already in use.
 `adev_set_mode()` in the audio HAL serialises on a lock that the voice call path
 already holds, so `MODE_IN_CALL` is issued late and the call has no audio.  The
 patch makes the lock a timed one and logs when it is contended.
+
+## camera-provider-system-group.patch
+
+The camera HAL could not write the camera id remap table, so every stream
+configuration was rejected and the preview never came up:
+
+    [ERROR][HAL] camxchicontext.cpp: EnumerateSensorModes() Unsupported capability
+    sysfs open file failed. [/sys/class/camera/rear/supported_cameraIds]
+    pResult contains more buffers (1) than the expected number of buffers (0)
+
+The kernel driver creates that node as `system:system 0664`.  The provider runs
+as `cameraserver` with gid `camera`, and the rc here listed
+
+    group audio camera input drmrpc usb
+
+so it was not in the owning group and had no write permission.  The stock
+provider lists `system` alongside those groups.  With it added the HAL writes
+the table on startup - `0 1 2 20 21 23 50 52 80` on y2q - and the sysfs error
+disappears.
