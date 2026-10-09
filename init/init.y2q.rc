@@ -165,25 +165,12 @@ on post-fs-data && property:ro.csc.sales_code=DSA
 # ro.vendor.nfc.feature.chipname="SLSI", whereas y2q's NFC part is an NXP SN100U.
 # The correct chipname is set in vendor.prop (NXP_SN100U).
 
-# Bluetooth: sm8250-common's vendor blobs come from r8q firmware
-# (G780GXXSHEYJ1) and therefore package the *Qualcomm* BT stack
-# (android.hardware.bluetooth@1.0-service-qti + impl-qti + htbtfw/htnv20) in
-# PRODUCT_PACKAGES.  That is correct for r8q but wrong here: y2q has a Broadcom
-# BCM4375 and uses the AOSP service + libbt-vendor, which device.mk provides.
-#
-# The real damage was done by the *implementation* library, not the extra
-# service: android.hardware.bluetooth@1.0-impl-qti was installed next to the AOSP
-# android.hardware.bluetooth@1.0-impl, and the AOSP HAL service picked the qti one
-# up through libhardware, so the Qualcomm stack ran against Broadcom silicon and
-# killed itself (SSR).  That is fixed at the source: the module was removed from
-# PRODUCT_PACKAGES in vendor/samsung/sm8250-common/sm8250-common-vendor.mk, so this
-# init workaround is no longer load-bearing.
-#
-# Kept as a cheap belt-and-braces guard: it costs nothing and it is still the right
-# thing to do if the blob list is ever regenerated and the module creeps back in.
-# Note the -qti rc declares the service "disabled", so it would not have started on
-# its own anyway - which is exactly why stopping it was never the fix.
-# It also cannot work regardless: its own libbtnv.so is absent and y2q has no
-# htnv20/hbtfw firmware.
+# Bluetooth: sm8250-common's blobs come from r8q firmware and package the Qualcomm
+# BT stack, including android.hardware.bluetooth@1.0-impl-qti - which the AOSP HAL
+# service would pick up through libhardware and run against Broadcom silicon.  That
+# is fixed at the source (the module is out of PRODUCT_PACKAGES in
+# sm8250-common-vendor.mk); this is a cheap guard in case the blob list is ever
+# regenerated.  The -qti rc declares the service disabled, so stopping it was never
+# the fix.
 on early-init
     stop vendor.bluetooth-1-0-qti

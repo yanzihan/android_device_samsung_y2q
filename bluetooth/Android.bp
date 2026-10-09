@@ -3,70 +3,22 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-// Build-time configuration for hardware/broadcom/libbt.
-//
-// libbt-vendor's Android.bp generates vnd_buildcfg.h from the source selected by
-//
-//     soong_config_variable("brcm_libbt", "custom_bt_config")
-//
-// so this filegroup is what has to be named in device.mk:
-//
-//     $(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
-//
-// Without that wiring the library falls back to include/vnd_generic.txt, whose
-// BLUETOOTH_UART_DEVICE_PORT is "/dev/ttyO1" - the TI OMAP port name - and the
-// HAL then fails every attempt to bring up the controller:
-//
-//     opening /dev/ttyO1
-//     unable to open /dev/ttyO1
-//     fd_count 0 is invalid!                     (vendor_interface.cc:238)
-//     VendorInterface -> Unable to call initializationComplete(ERR)
-//
-// BOARD_CUSTOM_BT_CONFIG, which this device used to set, is NOT read by anything
-// in this tree - the variable appears only in device BoardConfigs and in no build
-// rule - which is why the wiring below is what actually matters.
+// Build-time configuration for hardware/broadcom/libbt, named from device.mk via
+// soong_config_set(brcm_libbt, custom_bt_config, ...).  Without it the library
+// falls back to include/vnd_generic.txt, whose UART port is /dev/ttyO1.
 filegroup {
     name: "vnd_y2q.txt",
     srcs: ["libbt_vndcfg.txt"],
 }
 
-// The vendor library the Bluetooth HAL loads at runtime, taken from the stock
-// SM-G9860 image instead of being built from hardware/broadcom/libbt.
+// The vendor library the Bluetooth HAL loads, taken from the stock SM-G9860 image
+// rather than built from hardware/broadcom/libbt: the source build's LPM/wake
+// support is compiled out by default, so the BCM4375 can be put to sleep and never
+// woken and Bluetooth cannot start.  See the bluetooth commits for the full trace.
 //
-// The source build cannot drive this chip.  Its LPM/wake support is compiled out
-// by default (BT_WAKE_VIA_PROC = FALSE), so once libbt-vendor puts the BCM4375 to
-// sleep after the firmware download nothing can wake it, the reply to
-// ReadLocalExtendedFeatures never arrives, and com.android.bluetooth aborts in its
-// 3 s startup watchdog:
-//
-//     bt_gd_shim: StartEverything: init_status == 1     (1 = future timeout)
-//     Fatal signal 6 (SIGABRT) ... droid.bluetooth
-//
-//     system/main/shim/stack.cc:196
-//         if (init_status != std::future_status::ready) management_thread_->Abort();
-//
-// Raising bluetooth.gd.start_timeout to 30 s does not help - it is a hard block,
-// not slowness.  Building the source library with BT_WAKE_VIA_PROC = TRUE instead
-// segfaults the AOSP HAL inside VendorInterface::Send(), called from
-// VendorInterface::Open() while the firmware is being downloaded.
-//
-// The stock library has all of that working: it references
-// /proc/bluetooth/sleep/lpm and .../btwrite (the kernel provides both, owned
-// bluetooth:bluetooth), uses the same /dev/ttyHS0, and exports the same
-// BLUETOOTH_VENDOR_LIB_INTERFACE symbol the AOSP HAL looks up with dlsym
-// (vendor_interface.cc:36), so it is a drop-in replacement.  It only needs
-// libcutils/liblog/libtinyxml2/libc++.  With it the HAL reaches
-// "HCI HAL initialization completed !!" and the firmware loads in 0.93 s, against
-// 1.44 s for the source build.
-//
-// prefer: true is what makes this win over the identically named cc_library_shared
-// in hardware/broadcom/libbt, which is also in PRODUCT_SOONG_NAMESPACES.  Installing
-// it as a PRODUCT_COPY_FILES blob instead does not work: Soong still emits an
-// install rule for the source module (installs-lineage_y2q.mk) and kati fails with
-// "overriding commands for target .../vendor/lib64/libbt-vendor.so".
-//
-// Its extra /proc access needs the genfscon labels in sepolicy/vendor/
-// genfs_contexts, exactly like the rfkill node did.
+// prefer: true is what makes this win over the identically named source module in
+// hardware/broadcom/libbt.  Its extra /proc access needs the genfscon labels in
+// sepolicy/vendor/genfs_contexts.
 cc_prebuilt_library_shared {
     name: "libbt-vendor",
     owner: "samsung",
@@ -89,14 +41,8 @@ cc_prebuilt_library_shared {
     },
 }
 
-// Runtime configuration read by conf.c through VENDOR_LIB_CONF_FILE.
-//
-// Note this is a different file from libbt_vndcfg.txt above, with a different
-// syntax; see the comment at the top of bt_vendor.conf.  It must land in
-// /vendor/etc/bluetooth/ so that it carries the vendor_configs_file label the
-// Bluetooth HAL domain is allowed to read - the library's own fallback path
-// /etc/bluetooth/bt_vendor.conf resolves to /system/etc/, whose system_file label
-// that domain may not read (confirmed with an avc denial).
+// Runtime configuration read by conf.c through VENDOR_LIB_CONF_FILE.  Must land in
+// /vendor/etc/bluetooth/ to carry a label the Bluetooth HAL domain may read.
 prebuilt_etc {
     name: "bt_vendor.conf",
     src: "bt_vendor.conf",
@@ -104,9 +50,8 @@ prebuilt_etc {
     vendor: true,
 }
 
-// RemoteDevices.java loads this from a static initialiser and throws
-// ExceptionInInitializerError when it is absent, which aborts the whole Bluetooth
-// process.  It only has to exist; see the comment in the file.
+// Loaded by RemoteDevices from a static initialiser; absent, the whole Bluetooth
+// process aborts.  It only has to exist.
 prebuilt_etc {
     name: "bt_rc_name.conf",
     src: "bt_rc_name.conf",

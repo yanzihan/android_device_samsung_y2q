@@ -25,14 +25,8 @@ BOARD_SUPER_PARTITION_SIZE := 10292822016
 
 include device/samsung/sm8250-common/BoardConfigCommon.mk
 
-# SELinux
-#
-# y2q needs its own vendor sepolicy contributions because it ships Samsung's
-# prebuilt NFC and secure-element HALs, whose binary names are not the ones
-# sm8250-common labels.  Without file_contexts entries for them init refuses to
-# start the services at all (they inherit the generic vendor_file label and have
-# no domain transition), which is what kept NFC dead - see
-# sepolicy/vendor/file_contexts for the full trace.
+# y2q ships Samsung's prebuilt NFC / secure-element HALs, whose binary names
+# sm8250-common does not label.  See sepolicy/vendor/.
 BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/vendor
 
 # Display
@@ -51,59 +45,25 @@ TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
 # IMS bring-up overrides (persist.dbg.*_avail_ovr) live in system.prop
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
 
-# HWUI on Vulkan.
-#
-# The build system already emits ro.hwui.use_vulkan unconditionally, from this
-# variable:
-#     build/make/core/sysprop_config.mk:132
-#         ADDITIONAL_VENDOR_PROPERTIES += ro.hwui.use_vulkan=$(TARGET_USES_VULKAN)
-# (and again through build/soong/scripts/gen_build_prop.py:491).  Setting it here
-# is therefore the supported way to turn Vulkan on, and it avoids assigning the
-# same ro.* sysprop from two partitions - which is what happened when this was
-# first written into system.prop, leaving vendor/build.prop carrying an empty
-# ro.hwui.use_vulkan= next to system/build.prop's =1.
-#
-# HWUI reads it through use_vulkan() in frameworks/base/libs/hwui/Properties.cpp:
-#     240  bool useVulkan = use_vulkan().value_or(false);
-#     241  rendererProperty = GetProperty("debug.hwui.renderer", useVulkan ? "skiavk" : "skiagl");
-# so any non-empty, truthy value selects SkiaVulkan; "true" matches the Android
-# convention for build flags.
-#
-# Measured on y2q (Adreno 650, 1080x2400 @120 Hz, scrolled ~15 s, dumpsys gfxinfo
-# com.android.systemui):
-#     OpenGL  janky 425/645 (65.89%)   50th 29 ms   90th 34 ms
-#     Vulkan  janky  30/915 ( 3.28%)   50th  5 ms   90th 13 ms
-# The 120 Hz frame budget is 8.33 ms, which the OpenGL median (29 ms) could not
-# even meet at 60 Hz.  The GPU was never the bottleneck (~305 MHz, ~14% busy).
+# HWUI on Vulkan.  The build system already emits ro.hwui.use_vulkan from this
+# variable, so setting it here is the supported way and avoids assigning the same
+# ro.* sysprop from two partitions (which is what happened when it lived in
+# system.prop).  Measured with dumpsys gfxinfo com.android.systemui: 65.89% janky
+# frames on OpenGL against 3.28% on Vulkan.
 TARGET_USES_VULKAN := true
 
 # Bluetooth
-# y2q uses Broadcom BCM4375 over HS-UART (qupv3_se6_4uart in the kernel dts), the
-# same controller family as y2s but on a Qualcomm SoC.  Stock ships
-# android.hardware.bluetooth@1.0-service + libbt-vendor.so + bcm4375B1_murata.hcd,
-# NOT the Qualcomm QTI BT stack that sm8250-common is configured for
-# (android.hardware.bluetooth@1.0-service-qti + htbtfw20.tlv/htnv20.bin).
-# BOARD_HAVE_BLUETOOTH_BCM is what makes hardware/broadcom/libbt build
-# libbt-vendor; without it the AOSP BT service has no vendor lib to talk to.
+# Broadcom BCM4375 over HS-UART.  Stock ships the AOSP bluetooth service plus
+# libbt-vendor, NOT the Qualcomm QTI stack sm8250-common is set up for.
+# BOARD_HAVE_BLUETOOTH_BCM is what makes hardware/broadcom/libbt build the 32-bit
+# library; the 64-bit one comes from bluetooth/Android.bp.
 BOARD_HAVE_BLUETOOTH := true
 BOARD_HAVE_BLUETOOTH_BCM := true
-# NOTE: do NOT reuse y2s's bluetooth/libbt_vndcfg.txt - it sets
-# BLUETOOTH_UART_DEVICE_PORT = "/dev/ttySAC1", which is the Exynos UART name.
-# Qualcomm's msm_geni_serial registers as /dev/ttyHS*, hence our own file.
-#
-# The file is selected through Soong, from device.mk:
-#     $(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
-# BOARD_CUSTOM_BT_CONFIG used to be set here, but nothing in this tree reads that
-# variable (it appears only in device BoardConfigs and in no build rule), so the
-# library silently fell back to include/vnd_generic.txt and its /dev/ttyO1 port.
+# Do not reuse y2s's libbt_vndcfg.txt - that tree is Exynos and uses /dev/ttySAC1.
 
 # Wi-Fi
-# y2q uses a Broadcom BCM4375 (Murata module), NOT the Qualcomm QCA6390 that
-# device/samsung/sm8250-common (shared with r8q) is configured for.  The stock
-# firmware ships bcmdhd_* firmware + vendor/etc/init/wifi_brcm.rc, and the kernel
-# is built with CONFIG_BCM4375 / CONFIG_BCM_DHD_WLAN, so the userspace stack has
-# to be switched over here.  These use := to override the qcwcn values inherited
-# from BoardConfigCommon.mk (which also uses :=), leaving r8q unaffected.
+# Broadcom BCM4375 (Murata), not the Qualcomm QCA6390 sm8250-common is set up for.
+# := overrides the qcwcn values inherited from BoardConfigCommon.mk.
 BOARD_WLAN_DEVICE := bcmdhd
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
 BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_bcmdhd

@@ -14,20 +14,6 @@
 # limitations under the License.
 #
 
-# Overlays
-#
-# Everything that used to be a DEVICE_PACKAGE_OVERLAYS file now lives in
-# rro_overlays/ as a static RRO, so the old
-#     DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay $(LOCAL_PATH)/overlay-lineage
-# declaration (and both directories) are gone.  The RRO modules themselves are
-# listed under the second "# Overlays" block further down, together with the target
-# package each one overrides.
-#
-# Why the change: rro_overlays/ is what the y2s tree uses, and it keeps each
-# overlay in its own compiled module with the target package spelled out in its
-# AndroidManifest.xml, instead of relying on the directory layout matching the
-# upstream source path.
-
 # call the common setup
 $(call inherit-product, device/samsung/sm8250-common/common.mk)
 
@@ -45,18 +31,9 @@ PRODUCT_AAPT_PREBUILT_DPI := xxhdpi xhdpi hdpi
 TARGET_SCREEN_HEIGHT := 3200
 TARGET_SCREEN_WIDTH := 1440
 
-# Density mapping per panel resolution
-# The S20+ panel cannot do 1440x3200 above 60 Hz, so the build is set up to run
-# at 1080x2400 @ 120 Hz by default (see the kernel timing-default change).  The
-# framework density has to follow the resolution or the UI scales wrongly:
-#   density x dpi scaling -> logical width
-#   600 @ 1440 wide = 384 dp     (correct for WQHD+)
-#   600 @ 1080 wide = 288 dp     (too narrow - everything would shrink)
-#   450 @ 1080 wide = 384 dp     (correct for FHD+)
-# This mirrors device/samsung/universal9830-common's approach for y2s, which maps
-# 1440x3200 -> 600 and 1080x2400 -> 450 on the same panel family.
-# The file name carries this panel's stable display id, read from
-# `dumpsys SurfaceFlinger` -> "Display 4630947232161729153".
+# The panel cannot do 1440x3200 above 60 Hz, so the device runs at 1080x2400 @ 120 Hz
+# by default and the density has to follow the resolution: 450 @ 1080 wide gives the
+# same 384 dp as 600 @ 1440 wide.  The file name carries this panel's display id.
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/display/display_id_4630947232161729153.xml:$(TARGET_COPY_OUT_VENDOR)/etc/displayconfig/display_id_4630947232161729153.xml
 
@@ -72,38 +49,15 @@ PRODUCT_PACKAGES += \
 $(call soong_config_set,libinit,vendor_init_lib,//$(LOCAL_PATH):libinit_samsung_y2q)
 
 # Bluetooth
-# Broadcom BCM4375 over HS-UART - see BoardConfig.mk for why this differs from
-# sm8250-common's Qualcomm QTI BT stack.
-#
-# libbt-vendor is NOT built from hardware/broadcom/libbt any more.  The source
-# build cannot drive this chip: its LPM/wake path is compiled out by default, so
-# after the firmware download the controller is put to sleep and can never be
-# woken, the reply to ReadLocalExtendedFeatures never arrives, and the Bluetooth
-# stack aborts in its 3 s startup watchdog:
-#
-#   bt_gd_shim: StartEverything: init_status == 1        (1 = future timeout)
-#   Fatal signal 6 (SIGABRT) ... droid.bluetooth
-#
-# Building it with BT_WAKE_VIA_PROC = TRUE instead segfaults the AOSP HAL inside
-# VendorInterface::Send() during VendorInterface::Open().
-#
-# The stock SM-G9860 library has all of that working, exports the same
-# BLUETOOTH_VENDOR_LIB_INTERFACE symbol, and references the same /dev/ttyHS0, so
-# it is installed as a blob instead - see proprietary-files.txt.  With it the HAL
-# reaches "HCI HAL initialization completed !!" and the firmware loads in 0.93s
-# (against 1.44s for the source build).
-#
-# The soong_config_set and bluetooth/libbt_vndcfg.txt are kept because
-# BOARD_HAVE_BLUETOOTH_BCM still builds the 32-bit library, and the filegroup is
-# what keeps that build from silently falling back to include/vnd_generic.txt.
+# Broadcom BCM4375 over HS-UART.  libbt-vendor comes from bluetooth/Android.bp as a
+# prebuilt of the stock library, not from hardware/broadcom/libbt - see that file.
+# The soong_config_set below still selects the build-time config, because
+# BOARD_HAVE_BLUETOOTH_BCM builds the 32-bit library.
 $(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
-#
+
 # bt_rc_name.conf is loaded by RemoteDevices' static initialiser and only has to
-# exist, or com.android.bluetooth aborts on startup with "Reached maximum retry to
-# restart Bluetooth!".  bt_vendor.conf is the runtime configuration the stock
-# library reads (it references /etc/bluetooth/bt_vendor.conf; ours points it at
-# the /vendor/etc copy, which is the one that carries a label the HAL domain may
-# read).  Both must be installed, and both must go to /vendor/etc/bluetooth/.
+# exist; bt_vendor.conf is what the library reads at runtime.  Both go to
+# /vendor/etc/bluetooth/.
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-impl:64 \
     android.hardware.bluetooth@1.0-service \
@@ -112,30 +66,11 @@ PRODUCT_PACKAGES += \
     bt_rc_name.conf
 
 # NFC
-# NXP SN100U (see vendor.prop for the ro.vendor.nfc.* properties and
-# proprietary-files.txt for the blobs).  Service binary is
-# nxp.android.hardware.nfc@1.2-service - only ONE NFC service may be installed,
-# so android.hardware.nfc-service.nxp (used by r8q) is deliberately NOT here.
-# The config-file destinations match stock: /vendor/etc/libnfc-nxp.conf and
-# /vendor/etc/nfc/libnfc-nxp_RF.conf.
-# libnfc_trim_shim supplies android::base::Trim(std::string const&), which
-# Android 14 removed from libbase but the stock NXP blobs still need.  Without
-# it the NFC HAL cannot link at runtime and init never registers the service.
-# See nfc-shim/trim_shim.cpp.
-#
-# The shim must be preloaded, and the .rc does that with
-# `setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so` on both services.
-#
-# That works even though both drop to an unprivileged AID: bionic only reads
-# LD_PRELOAD when the kernel reports AT_SECURE (linker_main.cpp:329), and the
-# kernel only sets that for a setuid/setgid executable or elevated file
-# capabilities (fs/exec.c:1550, then "bprm->secureexec |= bprm->cap_elevated").
-# These binaries are -rwxr-xr-x with no capabilities, so neither applies.
-#
-# An earlier revision got this wrong and shipped a pair of root launchers that
-# dropped privileges themselves and exec'd the HALs.  Besides resting on a false
-# premise, that approach cannot be made to build: a HAL domain may not
-# execute_no_trans anything (system/sepolicy/private/hal_neverallows.te:100).
+# NXP SN100U.  Only ONE NFC service may be installed, so the AOSP
+# android.hardware.nfc-service.nxp that r8q uses is deliberately absent.
+# libnfc_trim_shim supplies android::base::Trim(), which Android 14 removed from
+# libbase but the stock NXP blobs still reference; the rc preloads it.  See
+# nfc-shim/trim_shim.cpp.
 PRODUCT_PACKAGES += \
     nxp.android.hardware.nfc@1.2-service \
     com.android.nfc_extras \
@@ -166,45 +101,25 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/sensors/hals.conf:$(TARGET_COPY_OUT_VENDOR)/etc/sensors/hals.conf
 
 # IMS / VoLTE / VoWiFi
-# Samsung's IMS stack is closed source and the Qualcomm IMS blobs from the stock
-# firmware are not packaged in this tree, so there is no vendor ImsService at all
-# - config_ims_mmtel_package would otherwise resolve to nothing and every call
-# would fall back to circuit-switched.  PhhIms supplies a userspace SIP/IMS stack
-# implementing android.telephony.ims.ImsService; the overlays that bind it and
-# advertise VoLTE/VoWiFi live in overlay/.
-# Iwlan and QualifiedNetworksService are bound by package name from the
-# framework overlay (config_wlan_data_service_package /
-# config_qualified_networks_service_package); without them the WLAN/IMS data path
-# never comes up even for VoLTE-only use.
+# No vendor ImsService is available (Samsung's is closed source and the Qualcomm
+# blobs are not packaged), so PhhIms supplies a userspace SIP/IMS stack.  Iwlan and
+# QualifiedNetworksService are bound by package name from the framework overlay.
 PRODUCT_PACKAGES += \
     PhhIms \
     Iwlan \
     QualifiedNetworksService
 
-# Privileged permissions required by PhhIms (it runs as android.uid.system)
-#   privapp-permissions: required because LineageOS sets
-#     ro.control_privapp_permissions=enforce unconditionally, so every
-#     signature|privileged permission a privileged app requests must be allowlisted.
-#   default-permissions: pre-grants RECORD_AUDIO.  It is a *dangerous* permission
-#     and the app has no UI, so nothing can grant it at runtime; without this the
-#     call connects but the far end cannot hear anything.
+# PhhIms runs as android.uid.system, so its privileged permissions must be
+# allowlisted (LineageOS enforces ro.control_privapp_permissions).  RECORD_AUDIO is
+# a dangerous permission the app has no UI to request, hence default-permissions.
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/permissions/privapp-permissions-me.phh.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-me.phh.ims.xml \
     $(LOCAL_PATH)/configs/permissions/default-permissions-me.phh.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/default-permissions-me.phh.ims.xml
 
 # Soong namespaces
-#
-# hardware/broadcom/libbt is deliberately NOT listed.  It is only needed to build
-# the source libbt-vendor, which we no longer use - bluetooth/Android.bp provides
-# libbt-vendor as a cc_prebuilt_library_shared carrying the stock SM-G9860 library.
-# Listing both namespaces makes Soong define the module twice and kati fails with
-#
-#     hardware/broadcom/libbt: MODULE.TARGET.SHARED_LIBRARIES.libbt-vendor
-#         already defined by device/samsung/y2q/bluetooth
-#
-# The soong_config_set for brcm_libbt below is left in place: it is harmless with
-# the namespace gone, and it is what would have to be restored if the source build
-# ever becomes viable again.
+# hardware/broadcom/libbt is deliberately NOT listed: it would define libbt-vendor a
+# second time, and kati fails with "MODULE.TARGET.SHARED_LIBRARIES.libbt-vendor
+# already defined".
 PRODUCT_SOONG_NAMESPACES += \
     $(LOCAL_PATH)
 
@@ -217,16 +132,10 @@ PRODUCT_PACKAGES += \
     wifi_brcm.rc \
     WiFiOverlayDevice
 
-# Overlays
+# Overlays.  Each rro_overlays/ directory is one runtime_resource_overlay module
+# whose AndroidManifest.xml names the target package.  DEVICE_PACKAGE_OVERLAYS is no
+# longer used at all.
 #
-# Every device resource overlay now lives in rro_overlays/ as a static RRO: each
-# directory there carries its own runtime_resource_overlay module plus an
-# AndroidManifest.xml naming the target package, and the module name below is what
-# pairs the two up.  There is no DEVICE_PACKAGE_OVERLAYS left at all - overlay/ and
-# overlay-lineage/ were removed once their last two files (Telephony's IMS
-# package, CarrierConfig's vendor.xml) moved in here.
-#
-# Target packages, for reference when adding another one:
 #   FrameworkResOverlayDevice      -> android
 #   SettingsOverlayDevice          -> com.android.settings
 #   SettingsProviderOverlayDevice  -> com.android.providers.settings
@@ -235,20 +144,12 @@ PRODUCT_PACKAGES += \
 #   TelephonyOverlayDevice         -> com.android.phone
 #   CarrierConfigOverlayDevice     -> com.android.carrierconfig
 #   LineageSDKOverlayDevice        -> org.lineageos.platform
-#   ApertureOverlayDevice          -> org.lineageos.aperture
+#   ApertureOverlayDevice          -> org.lineageos.aperture   (product partition)
 #
-# TelephonyOverlayDevice is the one that makes IMS possible at all: it sets
-# config_ims_mmtel_package=me.phh.ims, without which ImsResolver binds no MmTel
-# provider and every call falls back to circuit-switched - which cannot work here,
-# because the carrier has no CS network left (ServiceState reports
-# voiceRegState=OUT_OF_SERVICE with voiceRadioTech=Unknown while the PS domain is
-# registered on LTE).  CarrierConfigOverlayDevice carries the matching
-# carrier_volte_available_bool et al.
-#
-# Note ApertureOverlayDevice targets a product-partition app rather than a system
-# one; the rest target system/system_ext/vendor packages.  Static RROs are matched
-# to their target by partition, so if Aperture's config stops taking effect, that
-# is the thing to look at first.
+# TelephonyOverlayDevice is what makes IMS possible: it sets
+# config_ims_mmtel_package=me.phh.ims.  CarrierConfigOverlayDevice carries the
+# matching carrier_volte_available_bool et al.  Static RROs are matched to their
+# target by partition, so Aperture is the one to check first if it stops working.
 PRODUCT_PACKAGES += \
     ApertureOverlayDevice \
     CarrierConfigOverlayDevice \
@@ -259,15 +160,9 @@ PRODUCT_PACKAGES += \
     SystemUIOverlayDevice \
     TelephonyOverlayDevice
 
-# bcmdhd loads its firmware via the standard request_firmware() API, not via
-# CONFIG_BCMDHD_FW_PATH: the kernel is built with -DDHD_LINUX_STD_FW_API and
-# -DDHD_FW_NAME="bcmdhd_sta.bin" / -DDHD_NVRAM_NAME="nvram.txt"
-# (bcmdhd_101_16/Makefile:430-432), which on Android resolves to
-# /vendor/firmware/bcmdhd_sta.bin and /vendor/firmware/nvram.txt.
-# Stock only ships bcmdhd_sta.bin_b1 (the _b1 is the chip revision) and the
-# driver's exact-name lookup does not find it - hence "Wi-Fi listed but never
-# comes up".  Ship both under the names the driver actually asks for.
-# nvram is not fatal when absent (driver falls back to SROM OTP).
+# bcmdhd loads its firmware through request_firmware(), asking for the exact names
+# bcmdhd_sta.bin and nvram.txt.  Stock ships only bcmdhd_sta.bin_b1, so the driver
+# never finds it; both are shipped here under the names it asks for.
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/wifi/bcmdhd_sta.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/bcmdhd_sta.bin \
     $(LOCAL_PATH)/configs/wifi/nvram.txt:$(TARGET_COPY_OUT_VENDOR)/firmware/nvram.txt

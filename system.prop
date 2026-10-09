@@ -2,71 +2,26 @@
 # System properties for y2q (Galaxy S20+ 5G, SM-G9860, SM8250)
 #
 
-# ---------------------------------------------------------------------------
-# IMS bring-up overrides
+# Force the telephony framework to advertise VoLTE / VT / VoWiFi regardless of the
+# carrier, so the UI toggles and ImsResolver come up while PhhIms is brought
+# online.  Not a substitute for correct CarrierConfig.
 #
-# These force the telephony framework to advertise VoLTE / VT / VoWiFi as
-# available regardless of what the carrier reports.  They exist so that the
-# UI toggles and ImsResolver come up while bringing the userspace IMS stack
-# (packages/apps/PhhIms) online, and are NOT a substitute for correct
-# CarrierConfig - see overlay/packages/apps/CarrierConfig/res/xml/vendor.xml.
-#
-# They MUST be written as integers: system/sepolicy/private/property_contexts
-# labels persist.dbg.{volte,vt,wfc}_avail_ovr as "exact int", so a value of
-# "true" is rejected by init and the override silently does nothing.
-#
-# Only the three properties that actually exist in AOSP are set.  The upstream
-# PhhIms README also suggests persist.dbg.allow_ims_off, but there is no such
-# property anywhere in this tree's property_contexts (a grep for persist.dbg
-# returns exactly the twelve volte/vt/wfc *_ovr entries), so it is omitted
-# rather than shipped as dead config.
-# ---------------------------------------------------------------------------
+# These must be integers: property_contexts labels them "exact int", so "true" is
+# rejected by init and the override silently does nothing.
 persist.dbg.volte_avail_ovr=1
 persist.dbg.vt_avail_ovr=0
 persist.dbg.wfc_avail_ovr=1
 
-# ---------------------------------------------------------------------------
-# Bluetooth HCI timeouts - REQUIRED, not tuning
+# HCI command timeouts.  The 2000 ms default is too tight for the BCM4375: the chip
+# sleeps after ~1500 ms idle and needs ~500 ms to answer once BT_WAKE is asserted,
+# so the first command after an idle period lands just past the deadline, and the
+# stack then calls log::fatal() and takes the connection down with it.
 #
-# com.android.bluetooth aborts itself roughly five seconds after a connection is
-# started from the Bluetooth settings screen, which drops the connection it just
-# established.  Measured on the device with an HCI snoop capture:
+# All three must move together - bluetooth.gd.start_timeout bounds the same
+# controller handshake during start-up, and leaving it at its 3000 ms default while
+# the HCI timeout is 8000 ms makes Bluetooth fail to start at all.
 #
-#   14:24:00.972  CMD  Create_Connection (0x0405)
-#   14:24:02.972  the HCI timeout expires            <- exactly 2000 ms later
-#   14:24:02.987  EVT  Command Status for 0x0405     <- arrives 15 ms TOO LATE
-#   14:24:03.848  EVT  Connection_Complete           <- the link does come up
-#   14:24:07.980  Fatal signal 6 (SIGABRT)           <- abort_after_time_out
-#
-# The defaults are
-#     HciLayer::kHciTimeoutMs        = 2000 ms   (hci_layer.h:147)
-#     HciLayer::kHciTimeoutRestartMs = 5000 ms   (hci_layer.h:148)
-# raised by system/gd/hci/hci_layer.cc:73-84 from the properties below.  Both are
-# read ONCE into a function-local static, so they only take effect on a Bluetooth
-# restart and cannot be changed with setprop after the stack is up.
-#
-# 2000 ms is simply too tight for this controller.  libbt-vendor puts the BCM4375
-# into low power after LPM_IDLE_TIMEOUT_MULTIPLE * host_stack_idle_threshold * 300
-# = 1500 ms of inactivity, and the chip needs roughly half a second to answer
-# again once BT_WAKE is asserted - so the first command after an idle period lands
-# at ~2015 ms and misses the deadline by a hair.  The stack then flushes its
-# command queue, asks for controller debug info, and calls log::fatal():
-#
-#   bt_gd_shim: StartEverything: init_status == 1        (1 = future timeout)
-#   Abort message: 'system/gd/hci/hci_layer.cc:96 abort_after_time_out:
-#       Done waiting for debug information after HCI timeout
-#       (CREATE_CONNECTION(0x0405)) for 5000ms'
-#
-# Raising the HCI timeout is the fix.  The other two properties have to move with
-# it: bluetooth.gd.start_timeout (3000 ms default, system/main/shim/stack.cc:399)
-# bounds the same controller handshake during start-up, so leaving it at 3000 ms
-# while the HCI timeout is 8000 ms makes Bluetooth fail to start instead -
-# "init_status == 1" on every enable.
-#
-# These are deliberately world-readable platform properties rather than
-# persist.*: the Bluetooth process reads them at start-up and nothing needs to
-# change them at runtime.
-# ---------------------------------------------------------------------------
+# Read once at start-up, so they only take effect on a Bluetooth restart.
 bluetooth.hci.timeout_milliseconds=8000
 bluetooth.hci.restart_timeout_milliseconds=15000
 bluetooth.gd.start_timeout=20000

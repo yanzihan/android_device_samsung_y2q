@@ -1,34 +1,17 @@
-# Broadcom BCM4375 build-time configuration for y2q (Qualcomm sm8250).
+# Broadcom BCM4375 build-time configuration (hardware/broadcom/libbt).
 #
-# Consumed at BUILD time only.  hardware/broadcom/libbt/gen-buildcfg.sh converts
-# each line into a C #define, so the names here are the library's macro names and
-# the values are quoted to become C string literals.
+# Consumed at BUILD time by gen-buildcfg.sh, which turns each surviving line into
+# "#define <line, first = replaced by a space>".  Two rules follow from that:
+# names are the library's macro names, values are quoted to become C strings, and
+# the file must contain NO blank lines - the script's blank-line filter does not
+# work, so one becomes a bare "#define " and the build fails with "macro name
+# missing".
 #
-# TWO FORMATTING RULES, both enforced by that script and both learned the hard
-# way - it turns every surviving line into "#define <line with the first = turned
-# into a space>":
+# Selected from device.mk via soong_config_set(brcm_libbt, custom_bt_config, ...).
+# The runtime counterpart is bt_vendor.conf in this directory.
 #
-#   1. Every line must either start with '#' or be a real NAME = VALUE pair.
-#      Blank lines are NOT filtered out (the script's /^$$/d does not match an
-#      empty line - in BRE that pattern means "a line containing a literal $").
-#      A blank line therefore becomes a bare "#define ", and the build fails with
-#      "vnd_buildcfg.h:11:9: error: macro name missing".  Keep this file free of
-#      blank lines.
-#   2. The value must be quoted, or the generated #define will not be a string
-#      literal.
-#
-# The build picks this file up through the filegroup in Android.bp, named from
-# device.mk with
-#     $(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
-#
-# The runtime file the library reads later is bt_vendor.conf in this directory,
-# which has different names, no quoting, and no such constraint.
-#
-# BLUETOOTH_UART_DEVICE_PORT: y2q wires the BT controller to qupv3_se6_4uart
-# (4-wire, with RTS/CTS) in the kernel dts; Qualcomm's msm_geni_serial registers
-# those as /dev/ttyHS0.  Do NOT copy y2s's value - that tree is Exynos and uses
-# /dev/ttySAC1.  Getting this wrong is fatal rather than cosmetic: the generic
-# fallback is /dev/ttyO1, the HAL cannot open it, and Bluetooth never turns on.
+# Qualcomm's msm_geni_serial registers the BT UART (qupv3_se6_4uart) as
+# /dev/ttyHS0.  Do not copy y2s's /dev/ttySAC1 - that tree is Exynos.
 BLUETOOTH_UART_DEVICE_PORT = "/dev/ttyHS0"
 FW_PATCHFILE_LOCATION = "/vendor/firmware"
 FW_PATCH_SETTLEMENT_DELAY_MS = 0
@@ -36,36 +19,12 @@ UART_TARGET_BAUD_RATE = 3000000
 LPM_IDLE_TIMEOUT_MULTIPLE = 5
 SCO_USE_I2S_INTERFACE = TRUE
 SCO_I2SPCM_IF_ROLE = 0
-# BT_WAKE_VIA_PROC: drive the controller's sleep/wake through the kernel's
-# /proc/bluetooth/sleep nodes.  This MUST be TRUE on y2q, and leaving it at the
-# library default (FALSE) is what kept Bluetooth from ever starting:
-#
-#   * libbt-vendor tells the BCM4375 to enter low power right after the firmware
-#     download ("OnFirmwareConfigured Calling StartLowPowerWatchdog()", with an
-#     idle timeout of LPM_IDLE_TIMEOUT_MULTIPLE * host_stack_idle_threshold * 300
-#     = 1500 ms here).
-#   * With BT_WAKE_VIA_PROC = FALSE the whole body of upio_set(UPIO_LPM_MODE, ...)
-#     and upio_set(UPIO_BT_WAKE, ...) is compiled out, so the host can put the
-#     chip to sleep but has no way to wake it again.
-#   * The Bluetooth stack then blocks forever in ControllerImpl waiting for the
-#     reply to ReadLocalExtendedFeatures, the 3 s startup watchdog in
-#     system/main/shim/stack.cc:196 fires, and com.android.bluetooth aborts:
-#         bt_gd_shim: StartEverything: init_status == 1      (1 = future timeout)
-#         Fatal signal 6 (SIGABRT) ... droid.bluetooth
-#     Raising bluetooth.gd.start_timeout to 30 s does not help - it is a hard
-#     block, not slowness.
-#
-# The kernel side is already there: /proc/bluetooth/sleep/lpm and .../btwrite
-# exist and are owned bluetooth:bluetooth.  Those two paths are exactly the
-# defaults of VENDOR_LPM_PROC_NODE and VENDOR_BTWRITE_PROC_NODE (upio.c:64-70),
-# so nothing else has to be set.
-#
-# Confirmed against the stock SM-G9860 firmware: its prebuilt libbt-vendor.so
-# contains "/proc/bluetooth/sleep/lpm" and "/proc/bluetooth/sleep/btwrite",
-# whereas an unmodified AOSP build does not.
+# Drive the controller's sleep/wake through the kernel's /proc/bluetooth/sleep
+# nodes.  With the library default (FALSE) the body of upio_set() for
+# UPIO_LPM_MODE/UPIO_BT_WAKE is compiled out, so the chip can be put to sleep and
+# never woken and Bluetooth cannot start.  The two node paths are the library's
+# own defaults and the kernel provides them.
 BT_WAKE_VIA_PROC = TRUE
-# Where conf.c looks for the runtime file above.  Pointing it at /vendor/etc
-# matters: the built-in default is /etc/bluetooth/bt_vendor.conf, and /etc
-# resolves to /system/etc on this device, which the Bluetooth HAL domain is not
-# allowed to read.
+# conf.c's default is /etc/bluetooth/bt_vendor.conf, and /etc resolves to
+# /system/etc here, which the Bluetooth HAL domain may not read.
 VENDOR_LIB_CONF_FILE = "/vendor/etc/bluetooth/bt_vendor.conf"
