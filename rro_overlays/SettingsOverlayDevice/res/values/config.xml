@@ -25,22 +25,6 @@
          y = 78% of the screen height. -->
     <integer name="config_udfpsEnrollProgressBar" translatable="false">70</integer>
 
-    <!-- Whether to show the minimum refresh rate list in display settings.
-
-         Defined by LineageOS in packages/apps/Settings/res/values/lineage_config.xml
-         with a default of false, and read by
-         MinRefreshRatePreferenceController (Settings/.../display/
-         MinRefreshRatePreferenceController.java:50).  With the default, the
-         "smooth display" (peak refresh rate) toggle is the only refresh-rate
-         control; enabling this replaces it with the "minimum refresh rate" picker.
-
-         Note an RRO matches on the TARGET PACKAGE, not on which file inside the
-         target the resource came from - config.xml and lineage_config.xml both
-         belong to com.android.settings, so overlaying them from one RRO file
-         works.  The panel exposes 120/96/60/48 Hz in the 1080x2400 and 720x1600
-         mode groups, so the picker has a real effect there. -->
-    <bool name="config_show_min_refresh_rate_switch">true</bool>
-
     <!-- Max network scan search time in seconds.
 
          Read by NetworkScanRepository (Settings/.../network/telephony/scan/
