@@ -64,7 +64,12 @@ BOARD_HAVE_BLUETOOTH_BCM := true
 # NOTE: do NOT reuse y2s's bluetooth/libbt_vndcfg.txt - it sets
 # BLUETOOTH_UART_DEVICE_PORT = "/dev/ttySAC1", which is the Exynos UART name.
 # Qualcomm's msm_geni_serial registers as /dev/ttyHS*, hence our own file.
-BOARD_CUSTOM_BT_CONFIG := $(DEVICE_PATH)/bluetooth/libbt_vndcfg.txt
+#
+# The file is selected through Soong, from device.mk:
+#     $(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
+# BOARD_CUSTOM_BT_CONFIG used to be set here, but nothing in this tree reads that
+# variable (it appears only in device BoardConfigs and in no build rule), so the
+# library silently fell back to include/vnd_generic.txt and its /dev/ttyO1 port.
 
 # Wi-Fi
 # y2q uses a Broadcom BCM4375 (Murata module), NOT the Qualcomm QCA6390 that

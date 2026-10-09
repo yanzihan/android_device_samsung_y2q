@@ -3,6 +3,7 @@
 # Bluetooth (Broadcom BCM4375 firmware)
 vendor/firmware/bcm4375B1_murata.hcd
 
+
 # Wi-Fi (Broadcom BCM4375 / bcmdhd)
 # The kernel is built with CONFIG_BCM4375 + CONFIG_BCM_DHD_WLAN and loads these
 # via the bcmdhd (dhd) module.  The nvram.txt_* set is the per-module/batch

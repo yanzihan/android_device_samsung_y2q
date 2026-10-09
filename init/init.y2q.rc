@@ -170,8 +170,20 @@ on post-fs-data && property:ro.csc.sales_code=DSA
 # (android.hardware.bluetooth@1.0-service-qti + impl-qti + htbtfw/htnv20) in
 # PRODUCT_PACKAGES.  That is correct for r8q but wrong here: y2q has a Broadcom
 # BCM4375 and uses the AOSP service + libbt-vendor, which device.mk provides.
-# Both services are "class hal" with no "disabled", so both would start and race
-# for the same HS-UART (qupv3_se6_4uart).  Stop the Qualcomm one; it cannot work
-# anyway (its own libbtnv.so is absent and y2q has no htnv20/hbtfw firmware).
+#
+# The real damage was done by the *implementation* library, not the extra
+# service: android.hardware.bluetooth@1.0-impl-qti was installed next to the AOSP
+# android.hardware.bluetooth@1.0-impl, and the AOSP HAL service picked the qti one
+# up through libhardware, so the Qualcomm stack ran against Broadcom silicon and
+# killed itself (SSR).  That is fixed at the source: the module was removed from
+# PRODUCT_PACKAGES in vendor/samsung/sm8250-common/sm8250-common-vendor.mk, so this
+# init workaround is no longer load-bearing.
+#
+# Kept as a cheap belt-and-braces guard: it costs nothing and it is still the right
+# thing to do if the blob list is ever regenerated and the module creeps back in.
+# Note the -qti rc declares the service "disabled", so it would not have started on
+# its own anyway - which is exactly why stopping it was never the fix.
+# It also cannot work regardless: its own libbtnv.so is absent and y2q has no
+# htnv20/hbtfw firmware.
 on early-init
     stop vendor.bluetooth-1-0-qti

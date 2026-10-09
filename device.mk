@@ -73,14 +73,43 @@ $(call soong_config_set,libinit,vendor_init_lib,//$(LOCAL_PATH):libinit_samsung_
 
 # Bluetooth
 # Broadcom BCM4375 over HS-UART - see BoardConfig.mk for why this differs from
-# sm8250-common's Qualcomm QTI BT stack.  libbt-vendor is built from the
-# hardware/broadcom/libbt source tree, gated by BOARD_HAVE_BLUETOOTH_BCM.
-# y2s packages exactly this set, so the userspace side is portable; only the UART
-# port in bluetooth/libbt_vndcfg.txt had to be made Qualcomm-specific.
+# sm8250-common's Qualcomm QTI BT stack.
+#
+# libbt-vendor is NOT built from hardware/broadcom/libbt any more.  The source
+# build cannot drive this chip: its LPM/wake path is compiled out by default, so
+# after the firmware download the controller is put to sleep and can never be
+# woken, the reply to ReadLocalExtendedFeatures never arrives, and the Bluetooth
+# stack aborts in its 3 s startup watchdog:
+#
+#   bt_gd_shim: StartEverything: init_status == 1        (1 = future timeout)
+#   Fatal signal 6 (SIGABRT) ... droid.bluetooth
+#
+# Building it with BT_WAKE_VIA_PROC = TRUE instead segfaults the AOSP HAL inside
+# VendorInterface::Send() during VendorInterface::Open().
+#
+# The stock SM-G9860 library has all of that working, exports the same
+# BLUETOOTH_VENDOR_LIB_INTERFACE symbol, and references the same /dev/ttyHS0, so
+# it is installed as a blob instead - see proprietary-files.txt.  With it the HAL
+# reaches "HCI HAL initialization completed !!" and the firmware loads in 0.93s
+# (against 1.44s for the source build).
+#
+# The soong_config_set and bluetooth/libbt_vndcfg.txt are kept because
+# BOARD_HAVE_BLUETOOTH_BCM still builds the 32-bit library, and the filegroup is
+# what keeps that build from silently falling back to include/vnd_generic.txt.
+$(call soong_config_set,brcm_libbt,custom_bt_config,//$(LOCAL_PATH):vnd_y2q.txt)
+#
+# bt_rc_name.conf is loaded by RemoteDevices' static initialiser and only has to
+# exist, or com.android.bluetooth aborts on startup with "Reached maximum retry to
+# restart Bluetooth!".  bt_vendor.conf is the runtime configuration the stock
+# library reads (it references /etc/bluetooth/bt_vendor.conf; ours points it at
+# the /vendor/etc copy, which is the one that carries a label the HAL domain may
+# read).  Both must be installed, and both must go to /vendor/etc/bluetooth/.
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-impl:64 \
     android.hardware.bluetooth@1.0-service \
-    libbt-vendor:64
+    libbt-vendor:64 \
+    bt_vendor.conf \
+    bt_rc_name.conf
 
 # NFC
 # NXP SN100U (see vendor.prop for the ro.vendor.nfc.* properties and
@@ -150,9 +179,20 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/permissions/default-permissions-me.phh.ims.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/default-permissions/default-permissions-me.phh.ims.xml
 
 # Soong namespaces
+#
+# hardware/broadcom/libbt is deliberately NOT listed.  It is only needed to build
+# the source libbt-vendor, which we no longer use - bluetooth/Android.bp provides
+# libbt-vendor as a cc_prebuilt_library_shared carrying the stock SM-G9860 library.
+# Listing both namespaces makes Soong define the module twice and kati fails with
+#
+#     hardware/broadcom/libbt: MODULE.TARGET.SHARED_LIBRARIES.libbt-vendor
+#         already defined by device/samsung/y2q/bluetooth
+#
+# The soong_config_set for brcm_libbt below is left in place: it is harmless with
+# the namespace gone, and it is what would have to be restored if the source build
+# ever becomes viable again.
 PRODUCT_SOONG_NAMESPACES += \
-    $(LOCAL_PATH) \
-    hardware/broadcom/libbt
+    $(LOCAL_PATH)
 
 # UDFPS
 $(call soong_config_set,samsungUdfpsVars,udfps_zorder,0x20000000u)
