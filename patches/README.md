@@ -138,6 +138,19 @@ missing `ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS` while
 recognised by their pathology rather than by camera id, so unaffected devices
 keep their metadata untouched.
 
+**One camera's size ladder never ran.**  Camera 4, the 64MP telephoto, ends up
+with a four-entry stream configuration table - all of them 1280x3840 - because
+its frame-duration tables are mangled.  The rebuild path filters those out by
+checking the size fits the sensor's active array, but 1280x3840 fits a 9248x6944
+array, so all four survived and `valid < 4` was false, which kept the fallback
+ladder from ever running.  The check now also rejects portrait pairs, since
+Samsung publishes these tables landscape.  The camera then gets a 33-entry
+table with YUV output, and the zoom button that opens it no longer takes the
+camera app down with
+
+    java.lang.IllegalArgumentException: No available output size is found for
+    androidx.camera.core.impl.PreviewConfig
+
 ## sm8250-common-voip-tx-port.patch
 
 `AudioPolicyManager::getInputForAttr()` adds `AUDIO_INPUT_FLAG_VOIP_TX` itself

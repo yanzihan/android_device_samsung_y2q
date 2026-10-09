@@ -1,5 +1,5 @@
 diff --git a/aidl/camera/device/CameraDevice.cpp b/aidl/camera/device/CameraDevice.cpp
-index b8764a6..3d2a4db 100644
+index b8764a6..869c67a 100644
 --- a/aidl/camera/device/CameraDevice.cpp
 +++ b/aidl/camera/device/CameraDevice.cpp
 @@ -11,6 +11,10 @@
@@ -13,7 +13,7 @@ index b8764a6..3d2a4db 100644
  namespace android {
  namespace hardware {
  namespace camera {
-@@ -19,6 +23,247 @@ namespace implementation {
+@@ -19,6 +23,267 @@ namespace implementation {
  
  std::string CameraDevice::kDeviceVersion = "1.1";
  
@@ -75,15 +75,29 @@ index b8764a6..3d2a4db 100644
 +                         &streamConfigs) ||
 +        streamConfigs.count == 0) {
 +        needsStreamConfigs = true;
++    } else {
++        // The table is also unusable when it is present but has no YUV_420_888
++        // output entry, which is the format every camera client previews
++        // through.  Camera 4 here - the 64MP telephoto - carries exactly four
++        // entries, all of them 1280x3840, and no YUV at all, so opening it
++        // fails with
++        //   java.lang.IllegalArgumentException: No available output size is
++        //   found for androidx.camera.core.impl.PreviewConfig
++        // which is the zoom button that takes the camera app down with it.
++        bool hasYuvOutput = false;
++        for (size_t i = 0; i + 3 < streamConfigs.count; i += 4) {
++            if (streamConfigs.data.i32[i] == ANDROID_SCALER_AVAILABLE_FORMATS_YCbCr_420_888 &&
++                streamConfigs.data.i32[i + 3] ==
++                        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
++                hasYuvOutput = true;
++                break;
++            }
++        }
++        if (!hasYuvOutput) {
++            needsStreamConfigs = true;
++        }
 +    }
 +
-+    // The zoom range is published as 1.0x-8.0x, but the board this HAL
-+    // metadata was assembled for (and y2q alike) is a 30x-class device: the
-+    // 64MP telephoto covers 3x optically and Super Resolution zoom takes the
-+    // crop to 30x.  Extend the range so clients can actually request it.
-+    // (LENS_FACING cannot be used to scope this to the rear cameras: the same
-+    // broken metadata assembly that drops the stream configuration table also
-+    // leaves cameras without it.)
 +    // The zoom range is published as 1.0x-8.0x, but the board this HAL
 +    // metadata was assembled for (and y2q alike) is a 30x-class device: the
 +    // 64MP telephoto covers 3x optically and Super Resolution zoom takes the
@@ -165,6 +179,12 @@ index b8764a6..3d2a4db 100644
 +        }
 +        auto sizePlausible = [activeW, activeH](int32_t w, int32_t h) {
 +            if (w < 640 || h < 480 || w > 9500 || h > 9500) return false;
++            // Samsung publishes these tables landscape; the mangled duration
++            // tables decode to portrait pairs like 1280x3840, which pass every
++            // other test here - both sides fit the active array - and four of
++            // them were enough to satisfy the "valid < 4" check below and keep
++            // the size ladder from ever running.
++            if (h > w) return false;
 +            if (activeW > 0 && activeH > 0 && (w > activeW || h > activeH)) return false;
 +            return true;
 +        };
@@ -261,7 +281,16 @@ index b8764a6..3d2a4db 100644
  CameraDevice::CameraDevice(
          sp<SamsungCameraModule> module, const std::string& cameraId,
          const SortedVector<std::pair<std::string, std::string>>& cameraDeviceNames)
-@@ -79,7 +324,19 @@ ndk::ScopedAStatus CameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_
+@@ -40,7 +305,7 @@ CameraDevice::CameraDevice(
+         ALOGE("%s: Camera id %s does not support HAL3.2+", __FUNCTION__, mCameraId.c_str());
+         mInitFail = true;
+     }
+-}
++    }
+ 
+ CameraDevice::~CameraDevice() {}
+ 
+@@ -79,7 +344,19 @@ ndk::ScopedAStatus CameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_
                  metadata.update(ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL, &torchStrengthLevels, 1);
              }
  
@@ -272,7 +301,7 @@ index b8764a6..3d2a4db 100644
 +            // HAL's own blob is only ever read here.
 +            camera_metadata_t* repaired =
 +                    repairSamsungStaticMetadata((camera_metadata_t*)info.static_camera_characteristics);
-+            convertToAidl(repaired != nullptr
++                            convertToAidl(repaired != nullptr
 +                                  ? repaired
 +                                  : (camera_metadata_t*)info.static_camera_characteristics,
 +                          _aidl_return);
