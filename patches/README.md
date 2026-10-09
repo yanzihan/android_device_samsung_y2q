@@ -38,8 +38,48 @@ HAL and is a good way to spend an afternoon.
 ## phhims-sip-invite-fixes.patch
 
 PhhIms is used as the IMS stack; see the `ims:` commit in this repository for why
-there is no vendor ImsService.  This carries the fixes found while bringing calls
-up - see the individual commit in that project.
+there is no vendor ImsService.  Two faults made calls unusable, and both were in
+the session descriptions we sent rather than in the signalling around them.
+
+**Calls dropped the moment the far end answered.**  China Unicom's SBC sends a
+re-INVITE once the call is up, to renegotiate media for the connected state.
+Our answer to it was refused and the dialog was torn down 71 ms later:
+
+    180 Ringing
+    (far end answers)
+    UPDATE from the SBC
+    our 200
+    487 Request Terminated, Warning 399 "SDP is illegal"
+
+The cause is a missing CRLF.  RFC 4566 terminates every session description line
+with CRLF, including the last, and the SBC enforces it.  Two of the six builders
+omitted it and every other one emitted it, which is exactly the split between the
+descriptions the SBC accepted and the ones it refused:
+
+| builder | trailing CRLF | result |
+| --- | --- | --- |
+| `SipOutgoingInviteSdp` | yes | accepted |
+| `conservativeAmrNbRetryBody` | yes | accepted |
+| `SipIncomingInviteResponses` | yes | accepted |
+| `SipInDialogInvite` | yes | accepted |
+| `SipUpdateSdpAnswerBuilder` | no | refused, 487 |
+| `buildPreconditionUpdateSdp` | no | refused, 400 |
+
+Service numbers and incoming calls never reach that renegotiation, which is why
+they worked throughout and made this look like something else.
+
+Four genuine offer/answer faults were fixed alongside it, all in the same
+answers: fmtp parameters were invented for payloads the offer sent bare and
+ptime was defaulted instead of echoed; the QoS block was emitted even when the
+offer carried no preconditions; the answer used its own session id in `o=`
+rather than keeping one identity for the dialog; and rtpmap and fmtp lines were
+interleaved rather than paired per payload.
+
+**Incoming calls dropped about 150 ms after connecting.**  The operator sends a
+re-INVITE with no session description, which RFC 3261 14.2 defines as the peer
+asking the UAS to supply the offer.  The parse returned null for the empty body
+and the caller read that as "nothing acceptable" and answered 488, so the network
+took the dialog down.  It now answers 200 with the session already in use.
 
 ## audio-hal-adev-set-mode-lock.patch
 
