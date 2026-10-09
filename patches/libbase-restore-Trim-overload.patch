@@ -1,0 +1,40 @@
+diff --git a/include/android-base/strings.h b/include/android-base/strings.h
+index a4ff3ae..73f56ca 100644
+--- a/include/android-base/strings.h
++++ b/include/android-base/strings.h
+@@ -97,6 +97,18 @@ extern template std::string Trim(const std::string&&);
+ extern template std::string Trim(std::string_view&);
+ extern template std::string Trim(std::string_view&&);
+ 
++// Android 14 replaced the non-template overload with the template above. Prebuilt
++// vendor blobs built against an older libbase still reference the non-template
++// symbol, which the template instantiations do not provide - they mangle their
++// template argument into the name:
++//
++//   needed by the blob:  _ZN7android4base4TrimERKNSt3__112basic_string...
++//   template instance:   _ZN7android4base4TrimIRKNSt3__112basic_string...EEE
++//
++// so keep a non-template overload for them.  It is only selected for lvalues; a
++// std::string rvalue still binds the && overload above, which is a better match.
++[[nodiscard]] std::string Trim(const std::string& s);
++
+ // Joins a container of things into a single string, using the given separator.
+ template <typename ContainerT, typename SeparatorT>
+ std::string Join(ContainerT&& things, SeparatorT separator) {
+diff --git a/strings.cpp b/strings.cpp
+index a776d22..e79e742 100644
+--- a/strings.cpp
++++ b/strings.cpp
+@@ -76,6 +76,12 @@ template std::string Trim(const std::string&&);
+ template std::string Trim(std::string_view&);
+ template std::string Trim(std::string_view&&);
+ 
++// The non-template overload Android 14 removed; see strings.h.  Vendor blobs from
++// older trees reference this exact symbol.
++std::string Trim(const std::string& s) {
++  return Trim<const std::string&>(s);
++}
++
+ // These cases were measured either to be used during build by more than one binary, or during
+ // runtime as a significant portion of total calls.
+ // Instantiate them to aid compile time and binary size.

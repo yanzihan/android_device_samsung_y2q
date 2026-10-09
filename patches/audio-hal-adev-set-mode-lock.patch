@@ -1,0 +1,84 @@
+diff --git a/hal/audio_hw.c b/hal/audio_hw.c
+index 398c58b..4a7c6e5 100644
+--- a/hal/audio_hw.c
++++ b/hal/audio_hw.c
+@@ -9156,6 +9156,55 @@ static int adev_get_master_mute(struct audio_hw_device *dev __unused,
+     return -ENOSYS;
+ }
+ 
++/*
++ * Upper bound on how long adev_set_mode() will wait for adev->lock.
++ *
++ * AudioPolicyService::setPhoneState() reaches this function synchronously through
++ * AudioFlinger::setMode() -> DeviceHalHidl::setMode(), and audioserver arms a 3 s
++ * TimeCheck around that call which aborts the process (SIGABRT) if it has not
++ * returned.  A plain pthread_mutex_lock() here therefore turns any long-running
++ * holder of adev->lock - an ALSA/mixer/DSP operation that is itself stalled - into
++ * a dead audioserver: the HAL never replies, the watchdog fires, and the crash
++ * takes AudioRecord/AudioTrack down with it.
++ *
++ * On the y2q port that is exactly what happens when an application-layer IMS stack
++ * places a call: Telecom issues setMode(MODE_IN_CALL), which drives
++ * voice_start_call() down the baseband voice DSP path that has no call behind it,
++ * the lock is held indefinitely, and the call dies with no RTP in either direction.
++ *
++ * Timed acquisition converts that hang into an error return, so the caller gets
++ * -EBUSY, the previous mode stays in effect, and audioserver survives.
++ */
++#define ADEV_SET_MODE_LOCK_TIMEOUT_MS 1000
++
++/* Returns true if the lock was taken, false on timeout. */
++static bool adev_lock_with_timeout(struct audio_device *adev, const char *caller)
++{
++    struct timespec deadline;
++    int rc;
++
++    if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) {
++        ALOGE("%s: clock_gettime failed, falling back to blocking lock", caller);
++        pthread_mutex_lock(&adev->lock);
++        return true;
++    }
++
++    deadline.tv_sec += ADEV_SET_MODE_LOCK_TIMEOUT_MS / 1000;
++    deadline.tv_nsec += (ADEV_SET_MODE_LOCK_TIMEOUT_MS % 1000) * 1000000L;
++    if (deadline.tv_nsec >= 1000000000L) {
++        deadline.tv_sec += 1;
++        deadline.tv_nsec -= 1000000000L;
++    }
++
++    rc = pthread_mutex_timedlock(&adev->lock, &deadline);
++    if (rc == 0)
++        return true;
++
++    ALOGE("%s: adev->lock not acquired within %d ms (rc=%d), rejecting mode change "
++          "instead of blocking audioserver", caller, ADEV_SET_MODE_LOCK_TIMEOUT_MS, rc);
++    return false;
++}
++
+ static int adev_set_mode(struct audio_hw_device *dev, audio_mode_t mode)
+ {
+     struct audio_device *adev = (struct audio_device *)dev;
+@@ -9163,12 +9212,22 @@ static int adev_set_mode(struct audio_hw_device *dev, audio_mode_t mode)
+     struct audio_usecase *usecase = NULL;
+     int ret = 0;
+ 
+-    pthread_mutex_lock(&adev->lock);
++    if (!adev_lock_with_timeout(adev, __func__))
++        return -EBUSY;
++
+     if (adev->mode != mode) {
+         ALOGD("%s: mode %d , prev_mode %d \n", __func__, mode , adev->mode);
+         adev->prev_mode = adev->mode; /* prev_mode is kept to handle voip concurrency*/
++        /*
++         * Stage markers for diagnosing a stall in this function.  setPhoneState()
++         * reaches here synchronously and audioserver aborts the whole process if the
++         * reply is not back within 3 s, so when this hangs the last marker printed
++         * names the culprit - no other logging in the HAL brackets these calls.
++         */
++        ALOGW("%s: stage begin mode=%d", __func__, mode);
+         if (amplifier_set_mode(mode) != 0)
+             ALOGE("Failed setting amplifier mode");
++        ALOGW("%s: stage amplifier_done mode=%d", __func__, mode);
+         adev->mode = mode;
+         if (mode == AUDIO_MODE_CALL_SCREEN) {
+             adev->current_call_output = adev->primary_output;

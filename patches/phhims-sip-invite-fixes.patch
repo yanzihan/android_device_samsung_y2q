@@ -1,0 +1,148 @@
+diff --git a/app/src/main/java/me/phh/sip/SipHandler.kt b/app/src/main/java/me/phh/sip/SipHandler.kt
+index 3ff2405..b40df5a 100644
+--- a/app/src/main/java/me/phh/sip/SipHandler.kt
++++ b/app/src/main/java/me/phh/sip/SipHandler.kt
+@@ -4172,6 +4172,100 @@ fun onWfcDisabled(reason: String) {
+         return true
+     }
+ 
++    /**
++     * Retries the early-dialog UPDATE that carries the local QoS precondition answer when
++     * the network rejects it for illegal SDP.
++     *
++     * This is the UPDATE counterpart of [retryOutgoingInviteAfterIllegalSdp].  The failure
++     * it handles is operator-specific: China Unicom answers the first UPDATE with
++     *
++     *     400 Bad Request
++     *     Warning: 399 ... "SDP is illegal"
++     *
++     * and because that failure was not covered by the INVITE-only retry, the call was
++     * cancelled roughly a second after dialling instead of being given a chance with a
++     * simpler body.  The same precondition the INVITE path uses
++     * (SipInviteFailurePolicy.responseWarnsIllegalSdp) decides whether a retry is
++     * warranted, and the same retriedAfterIllegalSdp latch keeps it to one attempt per
++     * call, so an operator that rejects both bodies still fails cleanly.
++     */
++    private fun retryPendingOutgoingUpdateAfterIllegalSdp(
++        pending: PendingOutgoingInvite,
++        response: SipResponse,
++    ): Boolean {
++        if (!SipOutgoingInviteRetryPolicy.responseWarnsIllegalSdp(
++                response,
++                carrierSettings.inviteFailurePolicy,
++            )
++        ) {
++            return false
++        }
++        if (pending.cancelSent.get()) {
++            Rlog.w(TAG, SipOutgoingInviteRetryPolicy.notRetryingIllegalSdpAfterCancelLog(pending.callId))
++            return false
++        }
++        if (!pending.retriedAfterIllegalSdp.compareAndSet(false, true)) {
++            Rlog.w(TAG, SipOutgoingInviteRetryPolicy.notRetryingIllegalSdpTwiceLog(pending.callId))
++            return false
++        }
++
++        // This is an IN-DIALOG request, so it has to reuse the dialog's own Contact
++        // target and CSeq.  Sending it to pending.destination - which is the original
++        // tel: INVITE target - makes the network answer 481 "Call/Transaction Does Not
++        // Exist" ("No Dialog match") and the call still dies, just one round trip later.
++        // pending.headers describe the initial INVITE and carry the wrong CSeq; the
++        // dialog headers are the same ones the first UPDATE was built from.
++        //
++        // localDialogHeadersForRequest already allocates the next CSeq from
++        // call.localCseq (SipDialogHeaderBuilder.kt:23), so the number must NOT also be
++        // taken from outgoingDialogNextCseq: the two counters are not kept in step, and
++        // taking one from each produced a retry that repeated the CSeq of the UPDATE it
++        // was retrying.  The network answered that duplicate-carrying request with 200 but
++        // ignored it, and the call was torn down with 487 anyway.
++        val retryTarget = currentCall?.remoteContact ?: pending.destination
++        val retryHeaders = localDialogHeadersForRequest(currentCall!!, SipMethod.UPDATE) -
++            "content-length" +
++            ("content-type" to listOf("application/sdp"))
++        val retryBody = SipOutgoingInviteRetryPolicy.conservativeAmrNbRetryBody(
++            originalBody = pending.body,
++            localHost = socket.gLocalAddr().hostAddress ?: "0.0.0.0",
++        )
++
++        val retryUpdate = SipRequest(
++            SipMethod.UPDATE,
++            retryTarget,
++            retryHeaders,
++            retryBody,
++        )
++
++        pendingOutgoingInvite = pending.copy(
++            headers = retryHeaders,
++            body = retryBody,
++        )
++
++        Rlog.w(
++            TAG,
++            "Retrying early outgoing UPDATE ${pending.callId} after illegal SDP: " +
++                "cseq=${retryHeaders["cseq"]} target=$retryTarget " +
++                "oldBytes=${pending.body.size} newBytes=${retryBody.size}",
++        )
++
++        if (!writeSipBytesWithFlush(
++                socket.gWriter(),
++                SipOutgoingInviteRetryPolicy.illegalSdpRetryWriteLabel(),
++                retryUpdate.toByteArray(),
++            )
++        ) {
++            failOutgoingCallSetup(
++                statusString = "IMS signaling transport unavailable",
++                logReason = "illegal-SDP UPDATE retry write failed",
++                rtpSocket = pending.rtpSocket,
++                reconnectReason = "illegal-SDP UPDATE retry write failed",
++            )
++        }
++        return true
++    }
++
+ 
+     private fun retryOutgoingInviteAfter422(
+         pending: PendingOutgoingInvite,
+@@ -5851,6 +5945,42 @@ fun onWfcDisabled(reason: String) {
+                 return false
+             }
+ 
++            // An early-dialog UPDATE that the network rejects for illegal SDP must not
++            // kill the call.
++            //
++            // On China Unicom (46001) the first UPDATE, the one that carries the local
++            // QoS precondition answer after the 183, comes back as
++            //
++            //     400 Bad Request
++            //     Warning: 399 ... "SDP is illegal"
++            //
++            // which is exactly what SipInviteFailurePolicy.responseWarnsIllegalSdp already
++            // recognises (retryIllegalSdpStatusCodes = setOf(400), and
++            // retryIllegalSdpWarningSubstrings includes "SDP is illegal").  The retry above
++            // only covers a failure of the INVITE itself - failedCseq.contains("INVITE") -
++            // so an UPDATE failure fell through to the cancel path below and every
++            // outgoing call to that operator was torn down about a second after dialling:
++            //
++            //     Early outgoing in-dialog request failed; cancelling pending INVITE
++            //     Sending CANCEL for pending outgoing INVITE ...
++            //         early dialog request failed: 8 UPDATE 400
++            //
++            // Retrying the UPDATE with the same conservative AMR-NB body the INVITE path
++            // uses keeps the precondition negotiation intact instead of dropping the call.
++            // Only the first failure is retried, through the same retriedAfterIllegalSdp
++            // latch, so a call that is cancelled and dialled again starts clean.
++            if (failedPendingInvite != null &&
++                failedPendingInvite.callId == failedCallId &&
++                !failedCseq.contains("INVITE", ignoreCase = true) &&
++                failedCseq.contains("UPDATE", ignoreCase = true) &&
++                retryPendingOutgoingUpdateAfterIllegalSdp(
++                    failedPendingInvite,
++                    response,
++                )
++            ) {
++                return false
++            }
++
+             maybeScheduleCarrierConfiguredOutgoingInviteFinalFailureRecovery(
+                 response = response,
+                 failedCseq = failedCseq,
