@@ -14,9 +14,19 @@
 # limitations under the License.
 #
 
-DEVICE_PACKAGE_OVERLAYS += \
-    $(LOCAL_PATH)/overlay \
-    $(LOCAL_PATH)/overlay-lineage
+# Overlays
+#
+# Everything that used to be a DEVICE_PACKAGE_OVERLAYS file now lives in
+# rro_overlays/ as a static RRO, so the old
+#     DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay $(LOCAL_PATH)/overlay-lineage
+# declaration (and both directories) are gone.  The RRO modules themselves are
+# listed under the second "# Overlays" block further down, together with the target
+# package each one overrides.
+#
+# Why the change: rro_overlays/ is what the y2s tree uses, and it keeps each
+# overlay in its own compiled module with the target package spelled out in its
+# AndroidManifest.xml, instead of relying on the directory layout matching the
+# upstream source path.
 
 # call the common setup
 $(call inherit-product, device/samsung/sm8250-common/common.mk)
@@ -152,6 +162,48 @@ $(call soong_config_set,surfaceflinger,udfps_lib,//hardware/samsung/fingerprint:
 PRODUCT_PACKAGES += \
     wifi_brcm.rc \
     WiFiOverlayDevice
+
+# Overlays
+#
+# Every device resource overlay now lives in rro_overlays/ as a static RRO: each
+# directory there carries its own runtime_resource_overlay module plus an
+# AndroidManifest.xml naming the target package, and the module name below is what
+# pairs the two up.  There is no DEVICE_PACKAGE_OVERLAYS left at all - overlay/ and
+# overlay-lineage/ were removed once their last two files (Telephony's IMS
+# package, CarrierConfig's vendor.xml) moved in here.
+#
+# Target packages, for reference when adding another one:
+#   FrameworkResOverlayDevice      -> android
+#   SettingsOverlayDevice          -> com.android.settings
+#   SettingsProviderOverlayDevice  -> com.android.providers.settings
+#   SystemUIOverlayDevice          -> com.android.systemui
+#   WiFiOverlayDevice              -> com.android.wifi.resources
+#   TelephonyOverlayDevice         -> com.android.phone
+#   CarrierConfigOverlayDevice     -> com.android.carrierconfig
+#   LineageSDKOverlayDevice        -> org.lineageos.platform
+#   ApertureOverlayDevice          -> org.lineageos.aperture
+#
+# TelephonyOverlayDevice is the one that makes IMS possible at all: it sets
+# config_ims_mmtel_package=me.phh.ims, without which ImsResolver binds no MmTel
+# provider and every call falls back to circuit-switched - which cannot work here,
+# because the carrier has no CS network left (ServiceState reports
+# voiceRegState=OUT_OF_SERVICE with voiceRadioTech=Unknown while the PS domain is
+# registered on LTE).  CarrierConfigOverlayDevice carries the matching
+# carrier_volte_available_bool et al.
+#
+# Note ApertureOverlayDevice targets a product-partition app rather than a system
+# one; the rest target system/system_ext/vendor packages.  Static RROs are matched
+# to their target by partition, so if Aperture's config stops taking effect, that
+# is the thing to look at first.
+PRODUCT_PACKAGES += \
+    ApertureOverlayDevice \
+    CarrierConfigOverlayDevice \
+    FrameworkResOverlayDevice \
+    LineageSDKOverlayDevice \
+    SettingsOverlayDevice \
+    SettingsProviderOverlayDevice \
+    SystemUIOverlayDevice \
+    TelephonyOverlayDevice
 
 # bcmdhd loads its firmware via the standard request_firmware() API, not via
 # CONFIG_BCMDHD_FW_PATH: the kernel is built with -DDHD_LINUX_STD_FW_API and

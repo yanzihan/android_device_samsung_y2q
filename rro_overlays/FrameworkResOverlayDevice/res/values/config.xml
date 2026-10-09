@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!--
+     Framework resources specific to y2q (Galaxy S20+ 5G, SM-G9860).
+
+     Converted from DEVICE_PACKAGE_OVERLAYS (overlay/frameworks/base/core/res/) to a
+     static RRO targeting the "android" package.  Every resource the old overlay
+     carried is present here; the only value that intentionally differs from that
+     old file is config_mainBuiltInDisplayCutout, which was refreshed to the value
+     the device ships with (verified against dumpsys display:
+     cutoutSpec={M 510,60 a 20,20 0 1 0 60,0 a 20,20 0 1 0 -60,0 Z @left}).
+-->
+<resources>
+    <!-- The bounding path of the cutout region of the main built-in display.
+         Must either be empty if there is no cutout region, or a string that is parsable by
+         {@link android.util.PathParser}.
+
+         The path is assumed to be specified in display coordinates with pixel units and in
+         the display's native orientation, with the origin of the coordinate system at the
+         center top of the display. Optionally, you can append either `@left` or `@right` to the
+         end of the path string, in order to change the path origin to either the top left,
+         or top right of the display.
+
+         To facilitate writing device-independent emulation overlays, the marker `@dp` can be
+         appended after the path string to interpret coordinates in dp instead of px units.
+         Note that a physical cutout should be configured in pixels for the best results.
+
+         If the display supports multiple resolutions, please define the path config based on the
+         highest resolution so that it can be scaled correctly in each resolution.
+
+         Example for a 10px x 10px square top-center cutout:
+                <string ...>M -5,0 L -5,10 L 5,10 L 5,0 Z</string>
+         Example for a 10dp x 10dp square top-center cutout:
+                <string ...>M -5,0 L -5,10 L 5,10 L 5,0 Z @dp</string>
+
+         @see https://www.w3.org/TR/SVG/paths.html#PathData
+
+         The inherited value (510) put the blacked-out region to the LEFT of the
+         front camera.  The arithmetic centre of the panel, 1440/2 = 720, is NOT
+         the answer either - it puts the region to the RIGHT of the lens, with the
+         lens half exposed - so the camera on this unit really is off-centre.
+
+         These values are taken from the earlier y2q tree, where the cutout was
+         fixed and visually confirmed:
+
+             680,60 a 40,40 ...   ->  circle spans 640..720, i.e. diameter 80
+
+         That sits between the two values known to be wrong (510 and 720), and its
+         radius of 40 is what actually covers the lens: a 60 px circle (radius 30,
+         as inherited from r8q and as tried at 720) is too small and leaves part of
+         the camera visible.  Keep the radius at 40 if this is ever retuned.
+         -->
+    <string translatable="false" name="config_mainBuiltInDisplayCutout">M 680,60 a 40,40 0 1 0 80,0 a 40,40 0 1 0 -80,0 Z @left</string>
+
+    <!-- Rectangular approximation of the same cutout, used before the real path is
+         available.  Taken from the same confirmed tree: 620..720. -->
+    <string name="config_mainBuiltInDisplayCutoutRectApproximation">M 620,0 h 100 v 100 h -100 Z @left</string>
+
+    <!-- Whether the display cutout region of the main built-in display should be forced to
+         black in software (to avoid aliasing or emulate a cutout that is not physically existent).
+         -->
+    <bool name="config_fillMainBuiltInDisplayCutout">true</bool>
+
+    <bool name="config_physicalDisplayCutout">true</bool>
+
+    <!-- Whether the device enable the standalone (SA) mode of 5G NR.-->
+    <bool name="config_telephony5gStandalone">true</bool>
+
+    <!-- Whether the device enable the non-standalone (NSA) mode of 5G NR.-->
+    <bool name="config_telephony5gNonStandalone">true</bool>
+
+    <!-- Use the standard AOSP light sensor type.
+
+         History: the inherited value was r8q's "com.samsung.sensor.physical_light",
+         which does not exist on y2q (the framework reported an empty sensor name and
+         every BrightnessEvent carried lux=-1.0).  It was then pointed at y2q's
+         "com.samsung.sensor.auto_brightness", which IS registered by the HAL
+         (dumpsys sensorservice lists it) but the framework still could not resolve
+         it - dumpsys display kept showing an empty name.  Android's own
+         "android.sensor.light" (the TMD4907 ambient light sensor) is present and is
+         exactly what org.lineageos.platform.internal.display.AmbientLuxObserver
+         subscribes to with result=OK, so use that. -->
+    <string name="config_displayLightSensorType">android.sensor.light</string>
+
+    <!-- ================================================================
+         IMS / VoLTE / VoWiFi  (see also the Telephony overlay, which sets
+         config_ims_mmtel_package=me.phh.ims)
+         ================================================================
+
+         AOSP defaults every one of these to false/empty, so with no vendor IMS
+         stack the device has no IMS capability at all and every call falls back
+         to circuit-switched.  That is unusable on carriers that have already shut
+         2G/3G down - and on y2q's carrier there is no circuit-switched network
+         left at all: ServiceState reports voiceRegState=OUT_OF_SERVICE with
+         voiceRadioTech=Unknown while the PS domain is registered on LTE, so VoLTE
+         is the only way to place a call.
+
+         PhhIms (packages/apps/PhhIms) provides the ImsService/MmTel provider in
+         userspace and opens the SIP/IMS path; these flags are what let the
+         telephony framework advertise VoLTE/VoWiFi to the UI and to CarrierConfig.
+
+         Note these are the "hard" device/carrier capability gates: with them
+         true the feature is still gated by carrier provisioning and
+         CarrierConfig, which is the intended layering. -->
+
+    <bool name="config_device_volte_available">true</bool>
+    <bool name="config_carrier_volte_available">true</bool>
+
+    <!-- Video telephony is not implemented by PhhIms (voice + SMS are its
+         focus), so leave VT at the AOSP default. -->
+    <bool name="config_device_vt_available">false</bool>
+    <bool name="config_carrier_vt_available">false</bool>
+
+    <bool name="config_device_wfc_ims_available">true</bool>
+    <bool name="config_carrier_wfc_ims_available">true</bool>
+
+    <!-- Whether to use voip audio mode for ims calls.
+
+         The audio path of an IMS call is handled entirely in userspace by PhhIms
+         (AudioRecord/AudioTrack plus its own AMR codec), so the call has to be
+         presented to the audio HAL as a VoIP call rather than as a modem/baseband
+         call.  Leaving this false lets Telecom drive the audio mode through
+         SimCallFocusState -> AudioManager#setMode(MODE_IN_CALL); on y2q that mode
+         change queues behind slow HAL work and exceeds audioserver's 3 s
+         TimeCheck, so audioserver aborts and the call dies with no uplink RTP. -->
+    <bool name="config_use_voip_mode_for_ims">true</bool>
+
+    <!-- PhhIms routes USSD/MMI over CS when IMS UT/USSD is unavailable, so leave
+         this at the AOSP default. -->
+    <bool name="config_allow_ussd_over_ims">false</bool>
+
+    <!-- IWLAN (VoWiFi data service) and QNS (qualified networks service). -->
+    <string name="config_wlan_data_service_package" translatable="false">com.google.android.iwlan</string>
+    <string name="config_wlan_network_service_package" translatable="false">com.google.android.iwlan</string>
+    <string name="config_qualified_networks_service_package" translatable="false">com.android.telephony.qns</string>
+
+    <!-- ================================================================
+         Doze / Always-on display
+         ================================================================ -->
+
+    <!-- Whether the always on display mode is available. This should only be enabled
+         on devices where the display has been tuned to be power efficient in DOZE and/or
+         DOZE_SUSPEND states. -->
+    <bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
+
+    <!-- Control whether the always on display mode is enabled by default. This value will be used
+         during initialization when the setting is still null. -->
+    <bool name="config_dozeAlwaysOnEnabled">false</bool>
+
+    <!-- If true, the display will be shifted around in ambient mode. -->
+    <bool name="config_enableBurnInProtection">true</bool>
+
+    <!-- ================================================================
+         Under-display fingerprint (QBT2000, ultrasonic)
+         ================================================================ -->
+
+    <!-- Type of the udfps long press sensor. Empty if long press is not supported. -->
+    <string name="config_dozeUdfpsLongPressSensorType" translatable="false">org.lineageos.sensor.udfps</string>
+
+    <!-- Whether to enable fp unlock when screen turns off on udfps devices -->
+    <bool name="config_screen_off_udfps_enabled">true</bool>
+
+    <!-- Default value for fp screen off unlock toggle, it only works for the devices that support
+         fp screen off unlock-->
+    <bool name="config_screen_off_udfps_default_on">false</bool>
+
+    <!-- ================================================================
+         Telephony / Connectivity
+         ================================================================ -->
+
+    <!-- This string array should be overridden by the device to present a list of radio
+         attributes.  This is used by the connectivity manager to decide which networks can coexist
+         based on the hardware -->
+    <!-- An Array of "[ConnectivityManager connectionType],
+                      [# simultaneous connection types]"  -->
+    <string-array translatable="false" name="radioAttributes">
+        <item>1,1</item>
+        <item>0,1</item>
+        <item>7,1</item>
+    </string-array>
+
+    <!-- Boolean indicating if restoring network selection should be skipped -->
+    <!-- The restoring is handled by modem if it is true-->
+    <bool translatable="false" name="skip_restoring_network_selection">true</bool>
+
+    <!-- Is the device capable of hot swapping an UICC Card -->
+    <bool name="config_hotswapCapable">true</bool>
+
+    <!-- Config determines whether to update phone object when voice registration
+         state changes. Voice radio tech change will always trigger an update of
+         phone object irrespective of this config -->
+    <bool name="config_switch_phone_on_voice_reg_state_change">false</bool>
+
+    <!-- Flag indicating if the speed up audio on mt call code should be executed -->
+    <bool name="config_speed_up_audio_on_mt_calls">true</bool>
+
+    <!-- Whether the new Auto Selection Network UI should be shown -->
+    <bool name="config_enableNewAutoSelectNetworkUI">true</bool>
+
+    <!-- ================================================================
+         Brightness
+         ================================================================ -->
+
+    <!-- Screen brightness used to dim the screen when the user activity
+         timeout expires.  May be less than the minimum allowed brightness setting
+         that can be set by the user. -->
+    <integer name="config_screenBrightnessDim">13</integer>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.050980393</item>
+
+    <!-- Default screen brightness setting set.
+         -2 is invalid so setting will resort to int value specified above.
+         Must be in the range specified by minimum and maximum. -->
+    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.5019608</item>
+
+    <!-- Maximum screen brightness allowed by the power manager.
+         -2 is invalid so setting will resort to int value specified above.
+         Set this to 1.0 for maximum brightness range.
+         The user is forbidden from setting the brightness above this level. -->
+    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.0</item>
+
+    <!-- Minimum screen brightness setting allowed by power manager.
+         -2 is invalid so setting will resort to int value specified above.
+         Set this to 0.0 to allow screen to go to minimal brightness.
+         The user is forbidden from setting the brightness below this level. -->
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0</item>
+
+    <!-- Desired screen brightness in nits for each lux step in
+         config_autoBrightnessLevels.
+
+         THIS ARRAY IS ALSO THE BRIGHTNESS SLIDER CURVE.  The slider writes a
+         backlight fraction and the framework then maps that backlight back to nits
+         through this table, so an array that is not perceptually uniform makes the
+         slider feel lumpy: equal finger travel produces wildly unequal brightness
+         changes.
+
+         The inherited values (from r8q, S20 FE) were mechanically uneven:
+             249 -> 420 nits in one step  = 1.69x at 63% of the slider
+             plateaus at 119 (x3), 123 (x2) and 420 (x2)  = slider regions with no effect
+         which is exactly the reported symptom - "the first 60% only gets dimmer/
+         brighter slowly, the last 40% jumps".
+
+         Replaced with a gamma 2.2 ramp from 12 to 800 nits.  gamma 2.2 is the
+         transfer function Android itself uses for perceptual brightness
+         (BrightnessSynchronizer), and it removes both the plateau and the jump:
+         the largest single step is now 1.30x instead of 1.69x and no two entries
+         are equal.
+
+         Replaced with a gamma 2.2 ramp.  gamma 2.2 is the transfer function Android
+         itself uses for perceptual brightness (BrightnessSynchronizer), and it removes
+         both the plateau and the jump: the largest single step is now 1.30x instead of
+         1.69x and no two entries are equal.
+
+         The bottom of the ramp was raised 12 -> 20 -> 28 nits.  12 was reported as
+         too dark to read at night, and 20 still felt too dim in the same report.
+         Only the dimmest part of the curve moves (at 50 lux the value shifts by
+         ~14 nits; at 500 lux and above it is within a few nits of before).  To make
+         night brightness brighter or dimmer again, change the 28 used to generate
+         this table and re-derive, keeping the sequence strictly increasing.
+
+         The top stays at 800 nits, which is the panel's maximum non-HBM luminance. -->
+    <!-- Array of desired screen brightness in nits for idle screen brightness mode.
+         This array should meet the same requirements as config_autoBrightnessDisplayValuesNits.
+         This array also corresponds to the lux values given in config_autoBrightnessLevelsIdle.
+         In order to activate this mode, config_enableIdleScreenBrightnessMode must be true. -->
+    <integer-array name="config_autoBrightnessDisplayValuesNits">
+        <item>28</item>
+        <item>29</item>
+        <item>30</item>
+        <item>33</item>
+        <item>37</item>
+        <item>43</item>
+        <item>50</item>
+        <item>59</item>
+        <item>70</item>
+        <item>83</item>
+        <item>97</item>
+        <item>113</item>
+        <item>131</item>
+        <item>151</item>
+        <item>172</item>
+        <item>196</item>
+        <item>222</item>
+        <item>249</item>
+        <item>279</item>
+        <item>311</item>
+        <item>344</item>
+        <item>380</item>
+        <item>418</item>
+        <item>458</item>
+        <item>501</item>
+        <item>545</item>
+        <item>591</item>
+        <item>640</item>
+        <item>691</item>
+        <item>745</item>
+        <item>800</item>
+    </integer-array>
+
+    <!-- Array of light sensor lux values to define our levels for auto backlight brightness support.
+         The N entries of this array define N + 1 control points as follows:
+         (1-based arrays)
+
+         Point 1:            (0, value[1]):             lux <= 0
+         Point 2:     (level[1], value[2]):  0        < lux <= level[1]
+         Point 3:     (level[2], value[3]):  level[2] < lux <= level[3]
+         ...
+         Point N+1: (level[N], value[N+1]):  level[N] < lux
+
+         The control points must be strictly increasing.  Each control point
+         corresponds to an entry in the brightness backlight values arrays.
+         For example, if lux == level[1] (first element of the levels array)
+         then the brightness will be determined by value[2] (second element
+         of the brightness values array).
+
+         Spline interpolation is used to determine the auto-brightness
+         backlight values for lux levels between these control points.
+
+         Must be overridden in platform specific overlays -->
+    <integer-array name="config_autoBrightnessLevels">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
+        <item>25</item>
+        <item>30</item>
+        <item>35</item>
+        <item>40</item>
+        <item>45</item>
+        <item>50</item>
+        <item>100</item>
+        <item>300</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>2999</item>
+        <item>3000</item>
+        <item>4000</item>
+        <item>5000</item>
+        <item>6000</item>
+        <item>7000</item>
+        <item>8000</item>
+        <item>9000</item>
+        <item>10000</item>
+        <item>20000</item>
+        <item>40000</item>
+    </integer-array>
+</resources>

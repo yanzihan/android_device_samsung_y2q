@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!--
+     SystemUI resources specific to y2q.
+
+     This file was moved here from the old
+     overlay/frameworks/base/packages/SystemUI/res/values/config.xml when y2q's
+     overlays were converted from DEVICE_PACKAGE_OVERLAYS to static RROs; the
+     values themselves are unchanged.  See ./AndroidManifest.xml for the target
+     package (com.android.systemui).
+-->
+<resources>
+    <!-- A path similar to frameworks/base/core/res/res/values/config.xml
+         config_mainBuiltInDisplayCutout that describes a path larger than the
+         exact path of a display cutout.  If present as well as
+         config_enableDisplayCutoutProtection is set to true, then SystemUI will
+         draw this "protection path" instead of the display cutout path that is
+         normally used for anti-aliasing.  It is drawn only while the
+         front-facing camera is on, otherwise the main DisplayCutout path is used.
+
+         y2q's cutout is the S20+ centred punch hole.  The geometry below is
+         y2q's own measurement (a circle centred at x=510, y=42 with radius 35 in
+         the 1080-wide coordinate space) and differs from r8q, which uses
+         "M 493,60 a 45,45 0 1 0 94,0 a 45,45 0 1 0 -94,0 Z" - do not copy that
+         one here. -->
+    <string translatable="false" name="config_frontBuiltInDisplayCutoutProtection">M 510,42 a 35,35 0 1 0 70,0 35,35 0 1 0 -70,0 Z</string>
+
+    <!-- ID of the camera that needs extra protection, i.e. the one behind the
+         display cutout. -->
+    <string translatable="false" name="config_protectedCameraId">1</string>
+
+    <!-- Flag to turn on the rendering of the above path or not. -->
+    <bool name="config_enableDisplayCutoutProtection">true</bool>
+</resources>
