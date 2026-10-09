@@ -1,8 +1,47 @@
 diff --git a/app/src/main/java/me/phh/sip/SipHandler.kt b/app/src/main/java/me/phh/sip/SipHandler.kt
-index 3ff2405..b40df5a 100644
+index 3ff2405..f917208 100644
 --- a/app/src/main/java/me/phh/sip/SipHandler.kt
 +++ b/app/src/main/java/me/phh/sip/SipHandler.kt
-@@ -4172,6 +4172,100 @@ fun onWfcDisabled(reason: String) {
+@@ -215,8 +215,8 @@ class SipHandler(
+     ): Boolean {
+         val written = SipMessageWriter.write(TAG, writer, bytes, label)
+         if (written) {
+-            val firstLine = bytes
+-                .toString(Charsets.US_ASCII)
++            val text = bytes.toString(Charsets.US_ASCII)
++            val firstLine = text
+                 .lineSequence()
+                 .firstOrNull()
+                 .orEmpty()
+@@ -224,6 +224,27 @@ class SipHandler(
+                 TAG,
+                 "SIP write complete label=$label bytes=${bytes.size} firstLine=$firstLine",
+             )
++            // China Unicom answers 400 and then 487 with
++            //   Warning: 399 ... "SDP is illegal"
++            // for calls to real numbers, while service numbers go through.  The
++            // summary logs only name the SDP lines they care about, so when this is
++            // on the whole body is dumped and the offending line can be read off
++            // directly.  Off by default; turn it on with
++            //   adb shell setprop persist.sys.phhims.dump_sdp 1
++            if (android.os.SystemProperties.getBoolean("persist.sys.phhims.dump_sdp", false) &&
++                text.contains("application/sdp", ignoreCase = true)
++            ) {
++                val headerBlock = text.substringBefore("\r\n\r\n")
++                Rlog.d(TAG, "SIP dump label=$label headers=${headerBlock.lines().size}")
++                headerBlock.lines().forEach { line ->
++                    if (line.isNotEmpty()) Rlog.d(TAG, "SIPH $line")
++                }
++                val body = text.substringAfter("\r\n\r\n", "")
++                Rlog.d(TAG, "SDP dump label=$label lines=${body.lines().size}")
++                body.lines().forEachIndexed { i, line ->
++                    if (line.isNotEmpty()) Rlog.d(TAG, "SDP[$i] $line")
++                }
++            }
+         }
+         return written
+     }
+@@ -4172,6 +4193,107 @@ fun onWfcDisabled(reason: String) {
          return true
      }
  
@@ -34,6 +73,13 @@ index 3ff2405..b40df5a 100644
 +        ) {
 +            return false
 +        }
++        // The warning is the network saying which part of the SDP it would not take,
++        // so dump every header it sent rather than just the fact that it objected.
++        Rlog.w(
++            TAG,
++            "Illegal SDP response ${response.statusCode} headers=" +
++                response.headers.entries.joinToString(" | ") { "${it.key}=${it.value}" },
++        )
 +        if (pending.cancelSent.get()) {
 +            Rlog.w(TAG, SipOutgoingInviteRetryPolicy.notRetryingIllegalSdpAfterCancelLog(pending.callId))
 +            return false
@@ -103,7 +149,7 @@ index 3ff2405..b40df5a 100644
  
      private fun retryOutgoingInviteAfter422(
          pending: PendingOutgoingInvite,
-@@ -5851,6 +5945,42 @@ fun onWfcDisabled(reason: String) {
+@@ -5851,6 +5973,42 @@ fun onWfcDisabled(reason: String) {
                  return false
              }
  
@@ -146,3 +192,209 @@ index 3ff2405..b40df5a 100644
              maybeScheduleCarrierConfiguredOutgoingInviteFinalFailureRecovery(
                  response = response,
                  failedCseq = failedCseq,
+@@ -6266,6 +6424,21 @@ fun onWfcDisabled(reason: String) {
+                 callEncodeThread()
+             }
+ 
++            // China Unicom's SBC answers the precondition UPDATE 400 Bad Request /
++            // Warning 399 "SDP is illegal" whenever it carries the QoS attributes, and
++            // the call is torn down with 487 either way.  Service numbers, which never
++            // reach this path, connect normally - so try the flow they use: start the
++            // media, confirm nothing, and let the 200 OK arrive.  Experimental; off
++            // unless   adb shell setprop persist.sys.phhims.skip_precondition_update 1
++            if (android.os.SystemProperties.getBoolean(
++                    "persist.sys.phhims.skip_precondition_update",
++                    false,
++                )
++            ) {
++                Rlog.w(TAG, "Skipping the precondition UPDATE by property; waiting for 200 OK")
++                return true
++            }
++
+             val newSdp = SipOutgoingDialogSdp.buildPreconditionUpdateSdp(
+                 originalInviteSdp = originalInviteSdp,
+                 respSdp = respSdp,
+@@ -7088,7 +7261,30 @@ fun onWfcDisabled(reason: String) {
+             callId = callId,
+             cseq = cseq,
+             logTag = TAG,
+-        ) ?: return 488
++        )
++        if (offer == null) {
++            // RFC 3261 14.2: a re-INVITE carrying no session description is not a
++            // broken offer, it is the peer asking the UAS to supply one.  Answering
++            // 488 Not Acceptable Here - which returning early from the parse failure
++            // did - makes China Unicom's SBC send BYE about 150 ms after the ACK, so
++            // a call that had just connected dropped straight away:
++            //
++            //   18:35:06.461 Received request=ACK cseq=231510
++            //   18:35:06.526 Handling in-dialog INVITE cseq=231511 bodyBytes=0
++            //   18:35:06.526 Replying with response=488 cseq=231511
++            //   18:35:06.678 Received request=BYE cseq=231512
++            //
++            // The session we already have is the correct offer to send back.
++            if (request.body.isEmpty()) {
++                Rlog.w(TAG, "Offerless in-dialog INVITE cseq=$cseq; answering 200 with our SDP")
++                return answerOfferlessInDialogInvite(
++                    request = request,
++                    call = call,
++                    responseWriter = responseWriter,
++                )
++            }
++            return 488
++        }
+         val sdp = offer.sdp
+         val rtpRemoteAddr = offer.rtpRemoteAddr
+         val rtpRemotePort = offer.rtpRemotePort
+@@ -7173,6 +7369,45 @@ fun onWfcDisabled(reason: String) {
+     }
+ 
+ 
++    /**
++     * Answers a re-INVITE that arrived without a session description.
++     *
++     * RFC 3261 14.2 has the UAS put its own offer in the 200 OK in this case.  The
++     * offer is the session already in use, which is what [Call.sdp] holds, so nothing
++     * is renegotiated - the peer gets the same media back and keeps the dialog.
++     */
++    private fun answerOfferlessInDialogInvite(
++        request: SipRequest,
++        call: Call,
++        responseWriter: OutputStream,
++    ): Int {
++        val inDialogSessionTimerHeaders = SipInDialogInvite.sessionTimerHeaders(
++            request = request,
++            logTag = TAG,
++        )
++        val response = SipInDialogInvite.okResponseWithSdp(
++            request = request,
++            contact = call.callHeaders["contact"]!!.first(),
++            answerSdp = call.sdp,
++            inDialogSessionTimerHeaders = inDialogSessionTimerHeaders,
++            logTag = TAG,
++        )
++        if (!SipInDialogInvite.writeOkResponse(
++                responseWriter = responseWriter,
++                response = response,
++            )
++        ) {
++            reconnectIms("offerless in-dialog INVITE 200 response write failed")
++            return 0
++        }
++        sessionRefresher.updateFromIncomingRequest(
++            callId = request.callIdOrEmpty(),
++            requestHeaders = request.headers,
++        )
++        return 0
++    }
++
++
+     private fun rejectRecentlyTerminatedIncomingInviteIfNeeded(
+         incomingCallId: String,
+         request: SipRequest,
+diff --git a/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt b/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt
+index 86855fd..8d9e692 100644
+--- a/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt
++++ b/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt
+@@ -159,6 +159,12 @@ internal object SipOutgoingDialogSdp {
+         respSdp: List<String>,
+     ): OutgoingPrecondition183State {
+         Rlog.d(logTag, "Handling precondition...")
++        // The operator's own precondition block is the format the UPDATE has to match;
++        // dump it when SDP dumping is on so the two can be compared line by line.
++        if (android.os.SystemProperties.getBoolean("persist.sys.phhims.dump_sdp", false)) {
++            Rlog.d(logTag, "SDP dump remote183 lines=${respSdp.size}")
++            respSdp.forEachIndexed { i, line -> if (line.isNotEmpty()) Rlog.d(logTag, "SDPR[$i] $line") }
++        }
+         val currLocal = respSdp.first { it.startsWith("a=curr:qos local")}
+         // No resource has been allocated at either side
+         val localNone = currLocal.contains("none")
+@@ -183,30 +189,81 @@ internal object SipOutgoingDialogSdp {
+     ): ByteArray {
+         val remoteMaxptimeLine = respSdp.firstOrNull { it.startsWith("a=maxptime:") } ?: "a=maxptime:40"
+ 
++        // The desired-status lines describe what the *remote* party asked for, and
++        // RFC 3312 section 5 does not let the answerer change their strength-tag.  The
++        // INVITE this is derived from carries our own wish - "a=des:qos optional remote
++        // sendrecv" - while the 183 coming back from China Unicom's SBC says
++        // "a=des:qos mandatory remote sendrecv".  Repeating our weaker tag back is what
++        // the SBC rejects:
++        //
++        //   UPDATE  -> 400 Bad Request
++        //              Warning: 399 ... "SDP is illegal"
++        //   INVITE  -> 487 Request Terminated, same warning
++        //
++        // so take the remote's line verbatim.  Its own 183 is the only place that says
++        // which strength it wants.
++        val remoteDesLine = respSdp.firstOrNull {
++            it.startsWith("a=des:qos") && it.contains("remote")
++        }
++
++        // The payload types the 183 accepted, in the order it listed them.  An UPDATE
++        // inside an early dialog may not offer more than the answer took, and repeating
++        // the INVITE's list - which also carried AMR-NB 97 and telephone-event/8000 100
++        // while the SBC had accepted only AMR-WB 98 and telephone-event/16000 101 - is
++        // rejected the same way.  The order matters too: the speech codec has to stay
++        // first, so this keeps the answer's order rather than sorting the numbers.
++        val acceptedPayloads = respSdp
++            .firstOrNull { it.startsWith("m=audio ") }
++            ?.split(Regex("\\s+"))
++            ?.drop(3)
++            ?.filter { it.isNotEmpty() }
++            .orEmpty()
++
+         val localUpdateSdpLines = originalInviteSdp.toString(Charsets.UTF_8)
+             .split("[\r\n]+".toRegex())
+             .filter { it.isNotBlank() }
++            .filter { line ->
++                if (acceptedPayloads.isEmpty()) {
++                    true
++                } else if (line.startsWith("a=rtpmap:") || line.startsWith("a=fmtp:")) {
++                    line.substringAfter(':').substringBefore(' ') in acceptedPayloads
++                } else {
++                    true
++                }
++            }
+             .map { line ->
+                 when {
+                     line.startsWith("o=") -> {
+                         val v = nextLocalSdpVersion()
+                         line.replace(Regex("^(o=\\S+\\s+\\S+\\s+)\\S+(\\s+IN\\s+IP[46]\\s+.*)$"), "$1$v$2")
+                     }
++                    line.startsWith("m=audio ") && acceptedPayloads.isNotEmpty() -> {
++                        (line.split(Regex("\\s+")).take(3) + acceptedPayloads).joinToString(" ")
++                    }
+                     line.startsWith("a=maxptime:") -> remoteMaxptimeLine
++                    line.startsWith("a=des:qos") && line.contains("remote") && remoteDesLine != null -> remoteDesLine
+                     line.startsWith("a=curr:qos local") -> "a=curr:qos local sendrecv"
+                     line.startsWith("a=curr:qos remote") -> if (remoteHasLocalQos) "a=curr:qos remote sendrecv" else "a=curr:qos remote none"
+                     else -> line
+                 }
+             }
+-            .let { lines ->
+-                if (lines.any { it.startsWith("a=conf:qos remote") }) {
+-                    lines
+-                } else {
+-                    lines + "a=conf:qos remote sendrecv"
+-                }
++        // a=conf belongs with the other precondition attributes.  Appending it after
++        // a=sendrecv - which is where this used to put it - leaves the precondition
++        // block split across the media section, and China Unicom answers the UPDATE
++        // 400 Bad Request / Warning 399 "SDP is illegal" for it.
++        val confLine = "a=conf:qos remote sendrecv"
++        val withConf = if (localUpdateSdpLines.any { it.startsWith("a=conf:qos remote") }) {
++            localUpdateSdpLines
++        } else {
++            val sendrecvAt = localUpdateSdpLines.indexOfLast { it.startsWith("a=sendrecv") }
++            if (sendrecvAt >= 0) {
++                localUpdateSdpLines.toMutableList().apply { add(sendrecvAt, confLine) }
++            } else {
++                localUpdateSdpLines + confLine
+             }
++        }
+ 
+-        return localUpdateSdpLines.joinToString("\r\n").toByteArray(Charsets.US_ASCII)
++        return withConf.joinToString("\r\n").toByteArray(Charsets.US_ASCII)
+     }
+ 
+ 
