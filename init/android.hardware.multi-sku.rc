@@ -1,32 +1,43 @@
 # Samsung's prebuilt NFC and secure-element HALs.  device.mk deliberately does not
 # build the AOSP services: y2q runs nxp.android.hardware.nfc@1.2-service, which is
 # what stock ships and what implements the vendor.samsung.hardware.nfc@2.0::ISehNfc
-# extension.  The prebuilt's own rc declares the service `disabled` with no trigger,
-# so nothing would start it.
+# extension.
 #
-# Both need libnfc_trim_shim.so preloaded; see nfc-shim/trim_shim.cpp.
+# The service definition below must match the one in the vendor's own
+# nxp.android.hardware.nfc@1.2-service.rc.  init adds services to a list without
+# checking for duplicates and finds the first match, and this file sorts before that
+# one, so a definition here silently replaces it.  Omitting `interface` makes
+# hwservicemanager's ctl.interface_start fail, and omitting `oneshot` makes init
+# treat the normal lazy-HAL exit as a crash and restart it in a loop.
+#
+# Both HALs need libnfc_trim_shim.so preloaded; see nfc-shim/trim_shim.cpp.
 service vendor.nfc_hal_service /vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
+    interface android.hardware.nfc@1.0::INfc default
+    interface android.hardware.nfc@1.1::INfc default
+    interface android.hardware.nfc@1.2::INfc default
+    interface vendor.samsung.hardware.nfc@2.0::ISehNfc default
+    class hal
+    oneshot
     disabled
-    class early_hal
     user nfc
-    group nfc drmrpc system
+    group nfc net_bt_admin
     setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so
 
+# Started by `class hal`, as in the stock rc, so it needs no trigger.
+service vendor.secure_element_hal_service /vendor/bin/hw/android.hardware.secure_element@1.1-service
+    class hal
+    user system
+    group system
+    setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so
+
+# Variants this device does not ship.  The stock firmware ships only the two
+# binaries above, so nothing here can select these; they are kept to document the
+# alternative.
 service vendor.sec_nfc_hal_service /vendor/bin/hw/android.hardware.nfc-service.sec-sku
     disabled
     class hal
     user nfc
     group nfc
-
-# Same binary-name story as the NFC service above.  The stock firmware ships only
-# android.hardware.secure_element@1.1-service; the nxp and thales-sku variants do
-# not exist here.
-service vendor.secure_element_hal_service /vendor/bin/hw/android.hardware.secure_element@1.1-service
-    disabled
-    class early_hal
-    user secure_element
-    group secure_element nfc
-    setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so
 
 service gto_secure_element_aidl_service /vendor/bin/hw/android.hardware.secure_element-service.thales-sku
     disabled
@@ -34,35 +45,12 @@ service gto_secure_element_aidl_service /vendor/bin/hw/android.hardware.secure_e
     user secure_element
     group secure_element nfc
 
-# `on property:` only fires when the property *changes*, and every ro.* property
-# named below is already set from a property file before init parses this rc - so
-# those triggers never ran and neither service was ever registered.  `on boot`
-# fires unconditionally, after all property files are loaded.  The property
-# triggers are kept for the case where something really does change one at
-# runtime (e.g. an s3fwrn5 module being selected).
-#
-# y2q ships exactly one NFC and one secure-element HAL, so the SLSI / s3fwrn5
-# branches can never apply; they are kept only to document the alternative.
+# The HAL keeps its state here.  The stock init.nfc.samsung.rc creates it in
+# post-fs-data; without it the HAL cannot start.
+on post-fs-data
+    mkdir /data/vendor/nfc 0770 nfc nfc
+
+# `on property:` only fires when the property *changes*, and this one is already set
+# from a property file before init parses this rc, so the property trigger never ran.
 on boot
     start vendor.nfc_hal_service
-    start vendor.secure_element_hal_service
-
-on property:ro.vendor.nfc.feature.chipname=NXP_SN100U
-    start vendor.nfc_hal_service
-    start vendor.secure_element_hal_service
-
-on property:ro.boot.product.hardware.sku=sn110t
-    start vendor.nfc_hal_service
-    start vendor.secure_element_hal_service
-
-on property:ro.boot.product.hardware.sku=s3fwrn5
-    start vendor.sec_nfc_hal_service
-    start gto_secure_element_aidl_service
-
-on property:ro.boot.nfc.feature.chipname=NXP_SN100U
-    start vendor.nfc_hal_service
-    start vendor.secure_element_hal_service
-
-on property:ro.boot.nfc.feature.chipname=SLSI
-    start vendor.sec_nfc_hal_service
-    start gto_secure_element_aidl_service
