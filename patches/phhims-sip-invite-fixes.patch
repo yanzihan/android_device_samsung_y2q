@@ -292,6 +292,25 @@ index 3ff2405..f917208 100644
      private fun rejectRecentlyTerminatedIncomingInviteIfNeeded(
          incomingCallId: String,
          request: SipRequest,
+diff --git a/app/src/main/java/me/phh/sip/SipIncomingInviteOfferParser.kt b/app/src/main/java/me/phh/sip/SipIncomingInviteOfferParser.kt
+index d608b18..ad4240a 100644
+--- a/app/src/main/java/me/phh/sip/SipIncomingInviteOfferParser.kt
++++ b/app/src/main/java/me/phh/sip/SipIncomingInviteOfferParser.kt
+@@ -17,6 +17,14 @@ internal object SipIncomingInviteSdpParser {
+     ): IncomingInviteSdpBasics {
+         val sdp = request.body.toString(Charsets.UTF_8).split("[\r\n]+".toRegex()).toList()
+         Rlog.d(logTag, "Parsed incoming SDP lines=${sdp.size} bytes=${request.body.size}")
++        // Incoming calls work; outgoing ones are refused by the operator with
++        // 487 / Warning 399 "SDP is illegal".  Dumping both offers is what makes the
++        // two comparable line by line while that is being chased.
++        if (android.os.SystemProperties.getBoolean("persist.sys.phhims.dump_sdp", false)) {
++            sdp.forEachIndexed { i, line ->
++                if (line.isNotEmpty()) Rlog.d(logTag, "SDPI[$i] $line")
++            }
++        }
+         fun sdpElement(command: String): String? {
+             val v = sdp.firstOrNull { it.startsWith("$command=")} ?: return null
+             return v.substring(2)
 diff --git a/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt b/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt
 index 86855fd..8d9e692 100644
 --- a/app/src/main/java/me/phh/sip/SipOutgoingDialogSdp.kt
