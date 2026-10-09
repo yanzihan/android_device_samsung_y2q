@@ -206,9 +206,16 @@
 
     <!-- Screen brightness used to dim the screen when the user activity
          timeout expires.  May be less than the minimum allowed brightness setting
-         that can be set by the user. -->
-    <integer name="config_screenBrightnessDim">13</integer>
-    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.050980393</item>
+         that can be set by the user.
+
+         The values the device ships with, read from the stock RRO at
+         product/overlay/framework_res__auto_generated_rro_product.apk in the
+         SM-G9860 firmware.  The 13 / 0.050980393 this used to carry is three
+         times darker - 13 against 41, both out of 255 - and came from r8q's
+         tables rather than this device's.  Keep the pair consistent: the
+         framework prefers the float when the panel is in float mode. -->
+    <integer name="config_screenBrightnessDim">41</integer>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.16078432</item>
 
     <!-- Default screen brightness setting set.
          -2 is invalid so setting will resort to int value specified above.
