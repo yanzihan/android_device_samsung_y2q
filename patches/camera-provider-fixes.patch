@@ -1,5 +1,5 @@
 diff --git a/aidl/camera/device/CameraDevice.cpp b/aidl/camera/device/CameraDevice.cpp
-index b8764a6..d1faab1 100644
+index b8764a6..3d2a4db 100644
 --- a/aidl/camera/device/CameraDevice.cpp
 +++ b/aidl/camera/device/CameraDevice.cpp
 @@ -11,6 +11,10 @@
@@ -13,7 +13,7 @@ index b8764a6..d1faab1 100644
  namespace android {
  namespace hardware {
  namespace camera {
-@@ -19,6 +23,230 @@ namespace implementation {
+@@ -19,6 +23,247 @@ namespace implementation {
  
  std::string CameraDevice::kDeviceVersion = "1.1";
  
@@ -84,11 +84,28 @@ index b8764a6..d1faab1 100644
 +    // (LENS_FACING cannot be used to scope this to the rear cameras: the same
 +    // broken metadata assembly that drops the stream configuration table also
 +    // leaves cameras without it.)
++    // The zoom range is published as 1.0x-8.0x, but the board this HAL
++    // metadata was assembled for (and y2q alike) is a 30x-class device: the
++    // 64MP telephoto covers 3x optically and Super Resolution zoom takes the
++    // crop to 30x.  Extend the range so clients can actually request it.
++    //
++    // This HAL emits no ANDROID_CONTROL_ZOOM_RATIO_RANGE at all - the framework
++    // derives that from ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, which is what
++    // the HAL does publish, so rewriting the derived tag alone changes nothing:
++    // it is re-derived from the scaler tag on every query.  Both are moved, and
++    // the trigger has to accept either one being the 8.0 this metadata carries.
 +    bool needsZoomRange = false;
 +    camera_metadata_ro_entry_t zoomRange;
 +    if (findEntryByScan(src, ANDROID_CONTROL_ZOOM_RATIO_RANGE, &zoomRange) &&
 +        zoomRange.count == 2 && zoomRange.data.f[1] > 7.9f && zoomRange.data.f[1] < 8.1f) {
 +        needsZoomRange = true;
++    }
++    if (!needsZoomRange) {
++        camera_metadata_ro_entry_t maxDigital;
++        if (findEntryByScan(src, ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxDigital) &&
++            maxDigital.count == 1 && maxDigital.data.f[0] > 7.9f && maxDigital.data.f[0] < 8.1f) {
++            needsZoomRange = true;
++        }
 +    }
 +
 +    float fixedFocal = 0.0f;
@@ -244,7 +261,7 @@ index b8764a6..d1faab1 100644
  CameraDevice::CameraDevice(
          sp<SamsungCameraModule> module, const std::string& cameraId,
          const SortedVector<std::pair<std::string, std::string>>& cameraDeviceNames)
-@@ -79,7 +307,19 @@ ndk::ScopedAStatus CameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_
+@@ -79,7 +324,19 @@ ndk::ScopedAStatus CameraDevice::getCameraCharacteristics(CameraMetadata* _aidl_
                  metadata.update(ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL, &torchStrengthLevels, 1);
              }
  

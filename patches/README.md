@@ -119,6 +119,15 @@ so it was not in the owning group:
 The stock provider lists `system` alongside those groups.  With it added the HAL
 writes `0 1 2 20 21 23 50 52 80` on startup and the sysfs error stops.
 
+**The zoom stopped at 8x.**  The panel is a 30x-class device, and the libraries
+publish `ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM` as 8.0.  The fix moved both
+that tag and `ANDROID_CONTROL_ZOOM_RATIO_RANGE` to 30.0, but the trigger only
+looked for the latter - and this HAL does not emit it at all.  The framework
+derives `zoomRatioRange` from the scaler tag, so rewriting the derived one
+changes nothing; it is re-derived on every query.  The trigger now accepts
+either tag reporting 8.0, and both are moved.  Verified on the device: the
+framework then reports `[1.0, 30.0]` and `availableMaxDigitalZoom = 30.0`.
+
 **Static metadata was incomplete for some cameras.**  Some of the libraries this
 provider loads were built for a different board's camera topology, and for the
 cameras that do not line up the metadata comes out unsorted or short.
