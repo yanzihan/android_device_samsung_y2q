@@ -26,7 +26,7 @@ BOARD_SUPER_PARTITION_SIZE := 10292822016
 include device/samsung/sm8250-common/BoardConfigCommon.mk
 
 # Display
-TARGET_SCREEN_DENSITY := 420
+TARGET_SCREEN_DENSITY := 600
 
 # Kernel
 TARGET_KERNEL_CONFIG += vendor/samsung/y2q.config

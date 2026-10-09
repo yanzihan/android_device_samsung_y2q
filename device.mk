@@ -26,12 +26,13 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/audio/audio_platform_info_diff.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_platform_info_diff.xml \
     $(LOCAL_PATH)/configs/audio/mixer_paths.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths.xml
 
+# Boot Animation
+TARGET_SCREEN_HEIGHT := 3200
+TARGET_SCREEN_WIDTH := 1440
+
 # Camera
 $(call soong_config_set,samsungCameraVars,extra_ids,52)
 
-# Display
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/configs/display/displayconfig.xml:$(TARGET_COPY_OUT_VENDOR)/etc/displayconfig/display_id_4630947232161729153.xml
 
 # Init
 PRODUCT_PACKAGES += \
@@ -40,30 +41,31 @@ PRODUCT_PACKAGES += \
 
 $(call soong_config_set,libinit,vendor_init_lib,//$(LOCAL_PATH):libinit_samsung_y2q)
 
-# NFC
-PRODUCT_PACKAGES += \
-    android.hardware.nfc-service.nxp \
-    # nfc-service.sec-sku removed: nfc_nci_sec blob absent from vendor (y2q NFC HAL incomplete on 23.2; y2q uses NXP)
-    com.android.nfc_extras \
-    Tag
+# NFC DISABLED for first boot (user call 2026-10-07: no-NFC build first, fix NFC after system boots)
+#DEAD-NFC # # NFC
+#DEAD-NFC PRODUCT_PACKAGES += \
+#DEAD-NFC     android.hardware.nfc-service.nxp \
+#DEAD-NFC     nxp.android.hardware.nfc@1.2-service \
+#DEAD-NFC     com.android.nfc_extras \
+#DEAD-NFC     Tag
+#DEAD-NFC 
+#DEAD-NFC PRODUCT_COPY_FILES += \
+#DEAD-NFC     $(LOCAL_PATH)/configs/nfc/libnfc-sec-vendor.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-sec-vendor.conf \
+#DEAD-NFC     $(LOCAL_PATH)/configs/nfc/libnfc-nci-NXP_SN100U.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci-sn110t.conf \
+#DEAD-NFC     $(LOCAL_PATH)/configs/nfc/libnfc-nci-SLSI.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci-s3fwrn5.conf \
+#DEAD-NFC     $(LOCAL_PATH)/configs/nfc/libnfc-nxp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf \
+#DEAD-NFC     $(LOCAL_PATH)/configs/nfc/libnfc-nxp_RF.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp_RF.conf
+#DEAD-NFC 
+#DEAD-NFC # Permissions
+#DEAD-NFC PRODUCT_COPY_FILES += \
+#DEAD-NFC     frameworks/native/data/etc/android.hardware.nfc.hcef.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hcef.xml \
+#DEAD-NFC     frameworks/native/data/etc/android.hardware.nfc.hce.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hce.xml \
+#DEAD-NFC     frameworks/native/data/etc/android.hardware.nfc.uicc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.uicc.xml \
+#DEAD-NFC     frameworks/native/data/etc/android.hardware.nfc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.xml \
+#DEAD-NFC     frameworks/native/data/etc/com.nxp.mifare.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/com.nxp.mifare.xml
 
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/configs/nfc/libnfc-sec-vendor.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-sec-vendor.conf \
-    $(LOCAL_PATH)/configs/nfc/libnfc-nci-NXP_SN100U.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci-sn110t.conf \
-    $(LOCAL_PATH)/configs/nfc/libnfc-nci-SLSI.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci-s3fwrn5.conf \
-    $(LOCAL_PATH)/configs/nfc/libnfc-nxp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf \
-    $(LOCAL_PATH)/configs/nfc/libnfc-nxp_RF.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp_RF.conf
-
-# Permissions
-PRODUCT_COPY_FILES += \
-    frameworks/native/data/etc/android.hardware.nfc.hcef.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hcef.xml \
-    frameworks/native/data/etc/android.hardware.nfc.hce.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hce.xml \
-    frameworks/native/data/etc/android.hardware.nfc.uicc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.uicc.xml \
-    frameworks/native/data/etc/android.hardware.nfc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.xml \
-    frameworks/native/data/etc/com.nxp.mifare.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/com.nxp.mifare.xml
-
-# Secure Element: source-built nxp/thales services disabled (y2q y2q-shared
-# build; thales blob absent and nxp source service collides with blob prebuilt)
+# Secure Element: source-built nxp/thales services removed (r8q leftovers,
+# thales has no y2q blob; device uses prebuilt secure_element@1.1-service)
 # PRODUCT_PACKAGES += \
 #     android.hardware.secure_element-service.nxp \
 #     android.hardware.secure_element-service.thales-sku

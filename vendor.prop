@@ -1,23 +1,6 @@
+# Bluetooth
+bluetooth.device.default_name=Galaxy S20+
+
 # Fingerprint
-ro.vendor.fingerprint.type=udfps_optical
-ro.vendor.fingerprint.sensor_location=540|2144|100
-ro.vendor.fingerprint.request_touch_event=true
-
-# ---------------------------------------------------------------------------
-# Properties moved out of sm8250-common/vendor.prop.
-#
-# They had to leave the shared file because y2q needs different values for them
-# and the vendor build.prop is a concatenation (post_process_props rejects a
-# sysprop assigned twice with different values).  The values below are exactly
-# what sm8250-common used to provide, so y2q's behaviour is unchanged.
-# ---------------------------------------------------------------------------
-
-# NFC - S22 (SM-S901E) profile.  y2q is on the same NXP SN100U part as y2q, so
-# if its NFC misbehaves these three are the first thing to try flipping to the
-# S20+/S21U values documented in device/samsung/y2q/vendor.prop.
-ro.vendor.nfc.support.advancedsetting=false
-ro.vendor.nfc.support.defaultaid=true
-ro.vendor.nfc.support.nonaid=true
-
-# Refresh rate: frame rate override stays off for y2q, as before.
-ro.surface_flinger.enable_frame_rate_override=false
+ro.vendor.fingerprint.type=udfps
+ro.vendor.fingerprint.sensor_location=720|2500|150

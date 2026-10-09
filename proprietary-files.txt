@@ -1,4 +1,4 @@
-# Device-specific proprietary files - from Samsung package version G780GXXSHEYJ1 (T)
+# Device-specific proprietary files - from Samsung package version G9860ZHUCHZE1 (HK)
 
 # ACDB data
 vendor/etc/acdbdata/adsp_avs_config.acdb
@@ -29,13 +29,6 @@ vendor/firmware/cs40l25a_exc.bin
 vendor/firmware/dax_param.bin
 
 # Camera
-vendor/lib64/K32QS_libTsAeFront.so;FIX_SONAME
-vendor/lib64/K32QS_libTsAfFront.so;FIX_SONAME
-vendor/lib64/K32QS_libTsAwbFront.so
-vendor/lib64/X12QS_libTsAe.so;FIX_SONAME
-vendor/lib64/X12QS_libTsAf.so;FIX_SONAME
-vendor/lib64/X12QS_libTsAwb.so
-vendor/lib64/X12QS_libTsPdafm.so;FIX_SONAME
 vendor/lib64/libDLInterface.camera.samsung.so
 vendor/lib64/libIMUSensor.so
 vendor/lib64/libMoonVerifier_v1.camera.samsung.so
@@ -109,26 +102,14 @@ vendor/lib64/camera/com.qti.tuned.default.bin
 vendor/lib64/camera/com.samsung.sensor.hi847.so
 vendor/lib64/camera/com.samsung.sensor.imx555.so
 vendor/lib64/camera/com.samsung.sensor.imx616.so
-vendor/lib64/camera/com.samsung.sensor.s5k3l6.so
 vendor/lib64/camera/com.samsung.sensormodule.0_0_sony_imx555.bin
-vendor/lib64/camera/com.samsung.sensormodule.12_sony_imx616_full.bin
-vendor/lib64/camera/com.samsung.sensormodule.1_sony_imx616.bin
-vendor/lib64/camera/com.samsung.sensormodule.2_lsi_s5k3l6.bin
-vendor/lib64/camera/com.samsung.sensormodule.3_hynix_hi847.bin
-vendor/lib64/camera/com.samsung.tuned.hynix_hi847.bin
-vendor/lib64/camera/com.samsung.tuned.lsi_s5k3l6.bin
 vendor/lib64/camera/com.samsung.tuned.sony_imx555.bin
-vendor/lib64/camera/com.samsung.tuned.sony_imx616.bin
 
 # Camera (firmware)
 vendor/firmware/CAMERA_ICP.elf
-vendor/firmware/a96t356_y2q_all.bin
-vendor/firmware/a96t356_y2q_usa.bin
 vendor/lib64/camera/ois_mcu_stm32g_fw.bin
 
 # Display calibration data
-vendor/etc/qdcm_calib_data_ss_dsi_panel_EA8079B_AMS646YB01_FHD.xml
-vendor/etc/qdcm_calib_data_ss_dsi_panel_S6E3FC3_AMS646YD01_FHD.xml
 
 # Feature
 vendor/etc/floating_feature.xml
@@ -178,7 +159,6 @@ vendor/lib64/liblocation_api.so
 vendor/lib64/liblocationservice.so
 vendor/lib64/liblocationservice_glue.so
 vendor/lib64/liblowi_client.so
-vendor/lib64/liblowi_wifihal.so
 vendor/lib64/libmmosal.so
 vendor/lib64/libqcc_file_agent.so
 vendor/lib64/libqdma_file_agent.so
@@ -195,20 +175,13 @@ vendor/lib64/vendor.qti.hardware.qccsyshal@1.0.so
 vendor/lib64/vendor.samsung.hardware.gnss@2.0.so
 
 # NFC (SLSI)
-vendor/etc/nfc/sec_s3nrn4v_hwreg.bin
-vendor/etc/nfc/sec_s3nrn4v_swreg.bin
 
 # NFC (firmware)
-vendor/firmware/nfc/libsn100u_fw.so
-vendor/firmware/nfc/sec_s3nrn4v_firmware.bin
 
 # RIL-SEC - from dm2qxxx-user 14 UP1A.231005.007 S9160ZHS5CYA1 release-keys
-vendor/lib64/libsec_semRil.so|c59b00a3bb037df8f12cd4c5531ab41246e0130a
-vendor/lib64/libsecril-client.so|1614f75c6a98e1a4b3ca6a757dd6391b2efeb519
 
 # Secure Element
 vendor/etc/libese-nxp.conf
-vendor/etc/libse-gto-hal.conf
 
 # Sensors configs
 vendor/etc/sensors/config/ak991x_dri_0.json
@@ -218,8 +191,6 @@ vendor/etc/sensors/config/kona_default_sensors.json
 vendor/etc/sensors/config/kona_irq.json
 vendor/etc/sensors/config/kona_lsm6dso_0_0.json
 vendor/etc/sensors/config/kona_power_0.json
-vendor/etc/sensors/config/kona_stk31610_0.json
-vendor/etc/sensors/config/kona_tcs3407_0.json
 vendor/etc/sensors/config/lps22hh_0.json
 vendor/etc/sensors/config/lsm6dso_0.json
 vendor/etc/sensors/config/lsm6dso_0_8g.json
@@ -250,3 +221,43 @@ vendor/lib64/sensors.ssc.so
 
 # Thermal
 vendor/etc/btcon.json
+
+# Camera (S20+ 5G: imx555 wide, s5k2la tele, s5k2ld UW, s5k3j1/imx374 front, s5kgw2, ToF imx518/imx516)
+vendor/lib64/camera/com.samsung.sensormodule.0_1_lsi_s5k2ld.bin
+vendor/lib64/camera/com.samsung.sensormodule.1_0_sony_imx374.bin
+vendor/lib64/camera/com.samsung.sensormodule.1_1_lsi_s5k3j1.bin
+vendor/lib64/camera/com.samsung.sensormodule.12_0_sony_imx374_full.bin
+vendor/lib64/camera/com.samsung.sensormodule.12_1_lsi_s5k3j1_full.bin
+vendor/lib64/camera/com.samsung.sensormodule.14_lsi_s5kgw2_binning.bin
+vendor/lib64/camera/com.samsung.sensormodule.2_lsi_s5k2la.bin
+vendor/lib64/camera/com.samsung.sensormodule.3_lsi_s5kgw2.bin
+vendor/lib64/camera/com.samsung.sensormodule.4_0_sony_imx518.bin
+vendor/lib64/camera/com.samsung.sensormodule.4_1_sony_imx516.bin
+vendor/lib64/camera/com.samsung.tuned.lsi_s5k2la.bin
+vendor/lib64/camera/com.samsung.tuned.lsi_s5kgw2.bin
+vendor/lib64/camera/com.samsung.tuned.sony_imx374.bin
+vendor/lib64/camera/com.samsung.sensor.imx374.so
+vendor/lib64/camera/com.samsung.sensor.imx516.so
+vendor/lib64/camera/com.samsung.sensor.imx518.so
+vendor/lib64/camera/com.samsung.sensor.s5k2la.so
+vendor/lib64/camera/com.samsung.sensor.s5kgw2.so
+
+# Display (S6E3HAB AMB677TY01 WQHD+ panel)
+vendor/etc/qdcm_calib_data_ss_dsi_panel_S6E3HAB_AMB677TY01_WQHD.xml
+
+# NFC (NXP SN100U)
+# NFC disabled for first boot:
+# vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
+vendor/bin/hw/android.hardware.secure_element@1.1-service
+#SE-RC-DUP vendor/etc/init/android.hardware.secure_element@1.1-service.rc
+#DEAD-NFC vendor/lib64/nfc_nci_nxpsn.so
+#DEAD-NFC vendor/lib64/vendor.samsung.hardware.nfc@2.0.so
+#DEAD-NFC vendor/etc/libnfc-nxp.conf
+#DEAD-NFC vendor/etc/nfc/libnfc-nxp_RF.conf
+
+# RIL
+vendor/lib64/libsec_semRil.so
+vendor/lib64/libsecril-client.so
+
+# Sensors (TMD4907 ALS/PS)
+vendor/etc/sensors/config/kona_tmd4907_0.json

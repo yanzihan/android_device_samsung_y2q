@@ -25,22 +25,18 @@ $(call inherit-product, device/samsung/y2q/device.mk)
 # Inherit some common Lineage stuff
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
-# Boot animation
-TARGET_SCREEN_HEIGHT := 2400
-TARGET_SCREEN_WIDTH := 1080
-
 ## Device identifier. This must come after all inclusions
-PRODUCT_NAME := lineage_y2q
 PRODUCT_DEVICE := y2q
+PRODUCT_NAME := lineage_y2q
 PRODUCT_BRAND := samsung
-PRODUCT_MODEL := SM-G780G
+PRODUCT_MODEL := SM-G9860
 PRODUCT_MANUFACTURER := samsung
 
 PRODUCT_GMS_CLIENTID_BASE := android-samsung
 
 # Use the latest approved GMS identifiers
 PRODUCT_BUILD_PROP_OVERRIDES += \
-    BuildDesc="y2qxx-user 13 TP1A.220624.014 G780GXXSHEYJ1 release-keys" \
-    BuildFingerprint=samsung/y2qxx/y2q:11/RP1A.200720.012/G780GXXSHEYJ1:user/release-keys \
-    DeviceProduct=y2qxx \
-    SystemName=y2qxx
+    BuildDesc="y2qzhx-user 13 TP1A.220624.014 G9860ZHUCHZE1 release-keys" \
+    BuildFingerprint=samsung/y2qzhx/y2q:13/TP1A.220624.014/G9860ZHUCHZB1:user/release-keys \
+    DeviceProduct=y2qzhx \
+    SystemName=y2qzhx
