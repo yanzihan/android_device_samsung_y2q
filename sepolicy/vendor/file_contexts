@@ -1,0 +1,48 @@
+# y2q file contexts.
+#
+# y2q runs Samsung's prebuilt NFC / secure-element HALs, whose binary names do not
+# match the AOSP ones that sm8250-common labels in sepolicy/vendor/file_contexts
+# (android.hardware.nfc-service.sec-sku and .secure_element-service.nxp /
+# .thales-sku).  Without an entry here both binaries inherit the generic
+# u:object_r:vendor_file:s0 and init REFUSES to start their services outright:
+#
+#   init: Could not ctl.start for 'vendor.nfc_hal_service' from pid: ... :
+#   File /vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
+#   (labeled "u:object_r:vendor_file:s0") has incorrect label or no domain
+#   transition from u:r:init:s0 to another SELinux domain defined.
+#
+# The consequence is that the HAL is never registered with hwservicemanager, so
+# com.android.nfc finds no android.hardware.nfc@1.2::INfc/default, dies, is
+# restarted by the ActivityManager, and NFC stays dead - verified with
+#   ls -Z /vendor/bin/hw/   ->  u:object_r:vendor_file:s0
+# on both binaries while every other HAL was labelled correctly.
+#
+# The domains themselves already exist in sm8250-common; only the labelling was
+# missing.  Keep the regexes anchored like the common file does.
+#
+# ---------------------------------------------------------------------------
+# Why the launchers are listed too
+# ---------------------------------------------------------------------------
+# Running the HALs directly turned out not to be enough: their blobs need
+# libnfc_trim_shim.so preloaded, but init's `user nfc` / `user secure_element`
+# makes the kernel set AT_SECURE, and bionic's linker then ignores LD_PRELOAD
+# (linker_main.cpp:430-432).  The HALs therefore died with
+#
+#   CANNOT LINK EXECUTABLE ... cannot locate symbol
+#     "_ZN7android4base4TrimERKNSt3__1..." referenced by nfc_nci_nxpsn.so
+#
+# The services now point at the two launchers built from nfc-shim/, which drop to
+# the AID themselves and only then exec the real binary with LD_PRELOAD set.
+#
+# The launchers get the same exec type as the binaries they replace, so init
+# still transitions straight into hal_nfc_default / hal_secure_element_default and
+# the exec they perform stays inside that same domain - no extra policy, and no
+# domain transition at the second exec.
+#
+# The real binaries keep their /vendor/bin/hw names and their entries above, so
+# executing them from those domains remains allowed.
+/(vendor|system/vendor)/bin/hw/nxp\.android\.hardware\.nfc@1\.2-service          u:object_r:hal_nfc_default_exec:s0
+
+
+/(vendor|system/vendor)/bin/hw/android\.hardware\.secure_element@1\.1-service    u:object_r:hal_secure_element_default_exec:s0
+

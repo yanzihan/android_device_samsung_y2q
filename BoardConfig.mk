@@ -25,6 +25,16 @@ BOARD_SUPER_PARTITION_SIZE := 10292822016
 
 include device/samsung/sm8250-common/BoardConfigCommon.mk
 
+# SELinux
+#
+# y2q needs its own vendor sepolicy contributions because it ships Samsung's
+# prebuilt NFC and secure-element HALs, whose binary names are not the ones
+# sm8250-common labels.  Without file_contexts entries for them init refuses to
+# start the services at all (they inherit the generic vendor_file label and have
+# no domain transition), which is what kept NFC dead - see
+# sepolicy/vendor/file_contexts for the full trace.
+BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/vendor
+
 # Display
 TARGET_SCREEN_DENSITY := 600
 

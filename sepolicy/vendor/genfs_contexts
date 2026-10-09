@@ -1,0 +1,73 @@
+# y2q genfs contexts.
+#
+# Bluetooth power control.
+#
+# Broadcom's libbt-vendor powers the BCM4375 through the rfkill "state" node
+# (hardware/broadcom/libbt/src/upio.c, UPIO_LPM_MODE / upio_set()):
+#     /sys/devices/platform/soc/soc:bt_driver/rfkill/rfkill0/state
+# The node exists and is already owned bluetooth:bluetooth with mode 0660, so it
+# is writable by UID; what stops the HAL is SELinux, which leaves it as the
+# generic u:object_r:sysfs:s0.  The HAL therefore gets EACCES, and the failure
+# surfaces much later as a SIGSEGV while the HAL tears itself down:
+#
+#   avc: denied { write } for comm="bluetooth@1.0-s" name="state" dev="sysfs"
+#       scontext=u:r:hal_bluetooth_default:s0 tcontext=u:object_r:sysfs:s0
+#   Fatal signal 11 (SIGSEGV), fault addr 0x0
+#     #02 libbt-vendor.so (hw_lpm_enable+172)
+#     #03 libbt-vendor.so (op+152)
+#
+# and the framework then aborts with
+#   system/gd/hal/hci_backend_hidl.cc:45 initializationComplete:
+#       status == HidlStatus::SUCCESS
+# leaving Bluetooth unable to be switched on.
+#
+# AOSP already solves this for the PCI/USB rfkill layout by labelling the node
+# sysfs_bluetooth_writable and granting hal_bluetooth rw access
+# (system/sepolicy/private/genfs_contexts:135-138 and hal_bluetooth.te:21).
+# This kernel puts Bluetooth behind Samsung's soc:bt_driver platform device
+# instead, so the AOSP rule does not match and the vendor path has to be labelled
+# here.
+#
+# Only the vendored path is listed here.  The /class/rfkill/rfkillN/state form is
+# already labelled by AOSP (system/sepolicy/private/genfs_contexts:135-138), and
+# repeating it fails the build with
+#   ERROR 'duplicate entry for genfs entry (sysfs, /class/rfkill/rfkill0/state)'
+# This kernel never presents the node at that path anyway - it is Samsung's
+# soc:bt_driver platform device - so the AOSP entry simply does not match and the
+# vendored one is what takes effect.
+#
+# No extra allow rule is needed: sm8250-common's hal_bluetooth_default.te does
+# hal_server_domain(hal_bluetooth_default, hal_bluetooth), so the hal_bluetooth
+# permission set (including the rw_file_perms on sysfs_bluetooth_writable) is
+# inherited automatically.
+genfscon sysfs /devices/platform/soc/soc:bt_driver/rfkill/rfkill0/state    u:object_r:sysfs_bluetooth_writable:s0
+
+# Bluetooth sleep/wake through the kernel's proc nodes.
+#
+# libbt-vendor drives the BCM4375's low-power state and the BT_WAKE line through
+#     /proc/bluetooth/sleep/lpm       (VENDOR_LPM_PROC_NODE)
+#     /proc/bluetooth/sleep/btwrite   (VENDOR_BTWRITE_PROC_NODE)
+# but ONLY when the library is built with BT_WAKE_VIA_PROC = TRUE; with the
+# default (FALSE) the whole body of upio_set(UPIO_LPM_MODE/BT_WAKE, ...) is
+# compiled out, the host can put the chip to sleep and never wake it, and the
+# Bluetooth stack dies in its 3 s startup watchdog.  See bluetooth/
+# libbt_vndcfg.txt for the full trace.
+#
+# AOSP already has the permission for this - it declares the type and grants it:
+#     system/sepolicy/public/file.te:27
+#         type proc_bluetooth_writable, fs_type, proc_type;
+#     system/sepolicy/private/hal_bluetooth.te:32
+#         allow hal_bluetooth proc_bluetooth_writable:file rw_file_perms;
+# (and hal_bluetooth_default inherits it through
+# hal_server_domain(hal_bluetooth_default, hal_bluetooth)).
+#
+# What was missing is the LABEL.  On this kernel the nodes come out as the
+# generic u:object_r:proc:s0, so the AOSP rule does not match and the HAL gets
+# EACCES exactly like it did on the rfkill node above:
+#     ls -Z /proc/bluetooth/sleep/lpm -> u:object_r:proc:s0
+#
+# The nodes exist and are already owned bluetooth:bluetooth on the device, and
+# both paths are the library's own compiled-in defaults, so labelling them is the
+# only change needed.
+genfscon proc /bluetooth/sleep/lpm         u:object_r:proc_bluetooth_writable:s0
+genfscon proc /bluetooth/sleep/btwrite     u:object_r:proc_bluetooth_writable:s0
