@@ -122,6 +122,20 @@ PRODUCT_PACKAGES += \
 # Android 14 removed from libbase but the stock NXP blobs still need.  Without
 # it the NFC HAL cannot link at runtime and init never registers the service.
 # See nfc-shim/trim_shim.cpp.
+#
+# The shim must be preloaded, and the .rc does that with
+# `setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so` on both services.
+#
+# That works even though both drop to an unprivileged AID: bionic only reads
+# LD_PRELOAD when the kernel reports AT_SECURE (linker_main.cpp:329), and the
+# kernel only sets that for a setuid/setgid executable or elevated file
+# capabilities (fs/exec.c:1550, then "bprm->secureexec |= bprm->cap_elevated").
+# These binaries are -rwxr-xr-x with no capabilities, so neither applies.
+#
+# An earlier revision got this wrong and shipped a pair of root launchers that
+# dropped privileges themselves and exec'd the HALs.  Besides resting on a false
+# premise, that approach cannot be made to build: a HAL domain may not
+# execute_no_trans anything (system/sepolicy/private/hal_neverallows.te:100).
 PRODUCT_PACKAGES += \
     nxp.android.hardware.nfc@1.2-service \
     com.android.nfc_extras \

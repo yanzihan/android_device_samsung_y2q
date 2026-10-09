@@ -9,23 +9,41 @@
 # ...INfc/default"), and because the prebuilt's own .rc declares the service
 # `disabled` with no trigger of its own, nothing started the HAL at all - NFC
 # was dead while com.android.nfc sat there retrying.
+#
+# nfc_nci_nxpsn.so references android::base::Trim(std::string const&), which
+# Android 14 removed from libbase.  libnfc_trim_shim.so supplies that name and is
+# preloaded here:
+#
+#     CANNOT LINK EXECUTABLE "/vendor/bin/hw/nxp.android.hardware.nfc@1.2-service":
+#         cannot locate symbol
+#         "_ZN7android4base4TrimERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
+#         referenced by "/vendor/lib64/nfc_nci_nxpsn.so"
+#
+# LD_PRELOAD is honoured here even though the service drops to `user nfc`.  bionic
+# only reads it when the kernel reports AT_SECURE (linker_main.cpp:329), and the
+# kernel only raises that for a setuid/setgid executable or elevated file
+# capabilities (fs/exec.c:1550 - "if (!(mode & (S_ISUID|S_ISGID))) return;", and
+# bprm->secureexec |= bprm->cap_elevated).  This binary is -rwxr-xr-x with no
+# capabilities, so neither applies:
+#
+#     /vendor/bin/hw/nxp.android.hardware.nfc@1.2-service -> -rwxr-xr-x root shell
+#
+# An earlier revision of this device tree worked around a suspected AT_SECURE
+# problem by adding a root launcher that called setgid/setuid itself and then
+# exec'd the HAL.  That was based on a wrong theory, and it could not work anyway:
+# system/sepolicy/private/hal_neverallows.te:100 forbids execute_no_trans on any
+# file type from a HAL domain, so the build failed with
+#
+#     neverallow check failed ... (neverallow base_typeattr_691 base_typeattr_692
+#         (file (execute_no_trans)))
+#
+# The launcher is gone; the HAL is run directly.
 service vendor.nfc_hal_service /vendor/bin/hw/nxp.android.hardware.nfc@1.2-service
     disabled
     class early_hal
     user nfc
     group nfc drmrpc system
-    # nfc_nci_nxpsn.so references android::base::Trim(std::string const&), which
-    # Android 14 removed from libbase.  A shim library supplies it, but simply
-    # installing the shim is not enough: the dynamic linker only searches libraries
-    # that are already loaded, and nothing lists the shim in its DT_NEEDED, so the
-    # symbol stayed unresolved and the HAL died at startup with
-    #   CANNOT LINK EXECUTABLE ... cannot locate symbol
-    #       "_ZN7android4base4TrimERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
-    #       referenced by "/vendor/lib64/nfc_nci_nxpsn.so"
-    # Preloading it puts the definition in the link map before the blob is
-    # dlopen()ed.  Verified: with this preload the binary starts instead of failing
-    # to link.
-    LD_PRELOAD=/vendor/lib64/libnfc_trim_shim.so
+    setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so
 
 service vendor.sec_nfc_hal_service /vendor/bin/hw/android.hardware.nfc-service.sec-sku
     disabled
@@ -33,19 +51,21 @@ service vendor.sec_nfc_hal_service /vendor/bin/hw/android.hardware.nfc-service.s
     user nfc
     group nfc
 
-# Same story as the NFC service below: point at the binary this device ships.
+# Same story as the NFC service above: point at the binary this device ships.
 # The stock firmware has only android.hardware.secure_element@1.1-service (checked
 # against the SM-G9860 dump, and it is what our device.mk packages too);
 # android.hardware.secure_element-service.nxp and -service.thales-sku do not exist
 # here at all, so the old path could never start either.
+#
+# ese_spi_nxp.so needs the same removed android::base::Trim symbol, so the same
+# LD_PRELOAD applies.  See the comment on the NFC service above for why the
+# `user` line does not defeat it.
 service vendor.secure_element_hal_service /vendor/bin/hw/android.hardware.secure_element@1.1-service
     disabled
     class early_hal
     user secure_element
-    group secure_element
-    # ese_spi_nxp.so needs the same android::base::Trim(std::string const&) that
-    # Android 14 removed from libbase; see the note on the NFC service above.
-    LD_PRELOAD=/vendor/lib64/libnfc_trim_shim.so
+    group secure_element nfc
+    setenv LD_PRELOAD /vendor/lib64/libnfc_trim_shim.so
 
 service gto_secure_element_aidl_service /vendor/bin/hw/android.hardware.secure_element-service.thales-sku
     disabled
@@ -69,6 +89,28 @@ service gto_secure_element_aidl_service /vendor/bin/hw/android.hardware.secure_e
 # y2q ships exactly one NFC HAL and one secure element HAL (see the binary check
 # above), so there is no second variant to select between: the SLSI / s3fwrn5
 # branches below can never apply and are kept only to document the alternative.
+#
+# == WHY `on boot` AND NOT (ONLY) THE PROPERTY TRIGGERS ==
+#
+# `on property:...` actions only run on a *change* of the property, and init
+# registers the trigger when it parses this file.  Every property named below is
+# an ro.* property that is already set from /vendor/build.prop and
+# /vendor/default.prop long before init gets here, so no change ever happens and
+# the actions never run.  Verified on-device (2026-10-08, bacon24 build):
+#     # getprop init.svc.vendor.nfc_hal_service
+#     (empty)
+# i.e. init had not even registered the service, so nothing ever started the
+# HAL, /dev/ttyHS0 sat unused, and com.android.nfc retried forever:
+#     Unable to set property "ctl.interface_start" to
+#         "android.hardware.nfc@1.2::INFC/default"
+# `on boot` fires unconditionally during boot, after all property files have been
+# loaded, which is what actually gets the HAL up.  The property triggers are kept
+# for the case where something really does change the property at runtime (e.g.
+# an s3fwrn5 module being selected), but they are no longer the only mechanism.
+on boot
+    start vendor.nfc_hal_service
+    start vendor.secure_element_hal_service
+
 on property:ro.vendor.nfc.feature.chipname=NXP_SN100U
     start vendor.nfc_hal_service
     start vendor.secure_element_hal_service
