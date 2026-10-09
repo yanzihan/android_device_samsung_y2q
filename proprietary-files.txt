@@ -331,4 +331,3 @@ vendor/lib64/libMpeg4SwEncoder.so
 vendor/lib64/libimgproc_sw.unifunc.so
 vendor/lib64/unihal_android.so
 vendor/lib64/unihal_cutils.so
-vendor/lib64/libgrallocusage.so
