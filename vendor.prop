@@ -29,6 +29,40 @@
 # framework never took the under-display path.
 ro.vendor.fingerprint.type=udfps
 
+# Where the sensor sits, as "X|Y|R" (additional "|display" allowed), parsed by
+# hardware/samsung/aidl/fingerprint/Fingerprint.cpp:115-131 into
+# SensorLocation{sensorLocationX, sensorLocationY, sensorRadius}.
+#
+# Without it the HAL hands the framework an EMPTY sensor-location list
+# (FingerprintHalProperties::sensor_location().value_or("") is "", the Split()
+# loop never runs), and for an under-display sensor that is the coordinates the
+# UI needs to draw the fingerprint icon and to lay out enrolment - so UDFPS
+# cannot really work.
+#
+# The number is expressed in the panel's MAXIMUM resolution, not the resolution
+# the device happens to run at.  SystemUI computes
+#     scaleForResolution = physicalPixelDisplaySizeRatio
+# (common/ui/data/repository/ConfigurationRepository.kt:144-156, feeding
+# biometrics/domain/interactor/FingerprintPropertyInteractor.kt:106-118) and
+# scales the stored value down.  On y2q the maximum mode is 1440x3200 while the
+# default mode is 1080x2400, so SystemUI multiplies by 0.75
+# (dumpsys display reports physicalPixelDisplaySizeRatio={0.75}).
+#
+# 720|2500|150 is the value y2s (the S20+ Exynos counterpart) uses, and it is
+# correct here because y2q is the same phone with the same panel and the same
+# sensor placement:
+#   - the kernel device tree gives both devices the identical sensor position
+#     kernel/samsung/sm8250/arch/arm64/boot/dts/samsung/drivers/
+#         fingerprint-sensor_hubbley2_r00.dtsi
+#     qcom,position = "32.41,0.00,9.00,4.00,14.80,14.80,13.00,13.00,5.00"
+#   - both expose the same display modes (1440x3200 / 1080x2400 / 720x1600) and
+#     the same density mapping (2400 -> 450, 3200 -> 600)
+#   - both use the same Settings hint
+#     fingerprint_sensor_location_fraction_y = 70.72%
+# Scaling 720|2500|150 by 0.75 gives 540|1875|112, i.e. horizontally centred on
+# the 1080-wide screen - which is where an ultrasonic under-display sensor sits.
+ro.vendor.fingerprint.sensor_location=720|2500|150
+
 # ---------------------------------------------------------------------------
 # NFC (NXP SN100U)
 #
