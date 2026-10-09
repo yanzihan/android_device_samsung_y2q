@@ -14,14 +14,10 @@
 # the one node is not fighting the policy - it is the route the policy leaves open,
 # and init is what performs the write from the property trigger in init.y2q.rc.
 #
-# Both boot and the property change go through the same node, so the rule has to
-# cover writing it; nothing else under sysfs_batteryinfo is writable from init
-# because the actions in that rc only ever name this path.
+# The switch itself is persist.sys.wireless_tx_enable, which the platform already
+# labels system_prop (system/sepolicy/private/property_contexts), so shell and
+# system_app can set it without anything being declared here.  An earlier attempt
+# declared a vendor property type and granted shell access to it, which the build
+# rejected: a vendor policy cannot give a system domain the right to set a vendor
+# property.
 allow init sysfs_batteryinfo:file w_file_perms;
-
-# The switch itself.  shell is for `adb shell setprop`; system_app is what a
-# future Settings entry or Quick Settings tile would be.  See property_contexts
-# for the label.
-type wireless_tx_prop, property_type;
-set_prop(shell, wireless_tx_prop)
-set_prop(system_app, wireless_tx_prop)

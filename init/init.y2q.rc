@@ -193,7 +193,7 @@ on early-init
 # The boot rule is what makes it survive a reboot: `on property:` only fires on a
 # change, and a persist.* property is already loaded by then.
 on boot
-    write /sys/class/power_supply/battery/wc_tx_en ${persist.vendor.wireless_tx_enable}
+    write /sys/class/power_supply/battery/wc_tx_en ${persist.sys.wireless_tx_enable}
 
-on property:persist.vendor.wireless_tx_enable=*
-    write /sys/class/power_supply/battery/wc_tx_en ${persist.vendor.wireless_tx_enable}
+on property:persist.sys.wireless_tx_enable=*
+    write /sys/class/power_supply/battery/wc_tx_en ${persist.sys.wireless_tx_enable}

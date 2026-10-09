@@ -38,4 +38,4 @@ ro.surface_flinger.game_default_frame_rate_override=60
 # node that starts it, so init.y2q.rc does, from this property: on boot and on
 # every change of it.  0 is off, and the driver stops transmitting on its own at
 # wc_tx_stop_capacity (30%).
-persist.vendor.wireless_tx_enable=0
+persist.sys.wireless_tx_enable=0
