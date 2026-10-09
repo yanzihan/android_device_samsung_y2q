@@ -51,6 +51,32 @@ TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
 # IMS bring-up overrides (persist.dbg.*_avail_ovr) live in system.prop
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
 
+# HWUI on Vulkan.
+#
+# The build system already emits ro.hwui.use_vulkan unconditionally, from this
+# variable:
+#     build/make/core/sysprop_config.mk:132
+#         ADDITIONAL_VENDOR_PROPERTIES += ro.hwui.use_vulkan=$(TARGET_USES_VULKAN)
+# (and again through build/soong/scripts/gen_build_prop.py:491).  Setting it here
+# is therefore the supported way to turn Vulkan on, and it avoids assigning the
+# same ro.* sysprop from two partitions - which is what happened when this was
+# first written into system.prop, leaving vendor/build.prop carrying an empty
+# ro.hwui.use_vulkan= next to system/build.prop's =1.
+#
+# HWUI reads it through use_vulkan() in frameworks/base/libs/hwui/Properties.cpp:
+#     240  bool useVulkan = use_vulkan().value_or(false);
+#     241  rendererProperty = GetProperty("debug.hwui.renderer", useVulkan ? "skiavk" : "skiagl");
+# so any non-empty, truthy value selects SkiaVulkan; "true" matches the Android
+# convention for build flags.
+#
+# Measured on y2q (Adreno 650, 1080x2400 @120 Hz, scrolled ~15 s, dumpsys gfxinfo
+# com.android.systemui):
+#     OpenGL  janky 425/645 (65.89%)   50th 29 ms   90th 34 ms
+#     Vulkan  janky  30/915 ( 3.28%)   50th  5 ms   90th 13 ms
+# The 120 Hz frame budget is 8.33 ms, which the OpenGL median (29 ms) could not
+# even meet at 60 Hz.  The GPU was never the bottleneck (~305 MHz, ~14% busy).
+TARGET_USES_VULKAN := true
+
 # Bluetooth
 # y2q uses Broadcom BCM4375 over HS-UART (qupv3_se6_4uart in the kernel dts), the
 # same controller family as y2s but on a Qualcomm SoC.  Stock ships

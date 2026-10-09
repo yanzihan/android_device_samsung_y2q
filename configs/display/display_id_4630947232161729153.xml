@@ -1,20 +1,170 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Display device configuration for y2q (Galaxy S20+ 5G, SM-G9860).
+
+    <screenBrightnessMap> is REQUIRED by the schema:
+    frameworks/base/services/core/xsd/display-device-config/display-device-config.xsd
+    declares element "screenBrightnessMap" (type "nitsMap") with no minOccurs="0".
+    Omitting it silently costs us auto-brightness:
+
+      DisplayDeviceConfig.loadBrightnessMap()
+        config.getScreenBrightnessMap() == null, so it falls back to
+        loadBrightnessMapFromConfigXml(), which reads
+        config_screenBrightnessNits / config_screenBrightnessBacklight.  Both are
+        EMPTY on this device, so mNits and mBacklight stay null and
+        BrightnessMappingStrategy.create() returns null, leaving
+        DisplayPowerController with mUseSoftwareAutoBrightnessConfig = false.
+
+    This map is the backlight <-> nits relationship the framework uses for both the
+    brightness slider and the auto-brightness target conversion.  The values below
+    are the effective curve of the earlier y2q tree, which is what the slider felt
+    right on.  Two things were wrong with the r8q-inherited curve that this
+    replaces, and both were visible symptoms:
+
+      * It had plateaus and a 1.69x step between 249 nits (slider 0.60) and
+        420 nits (slider 0.667) - "the first 60% only gets dimmer slowly, the last
+        40% jumps".
+      * Its bottom end was 12 nits, which was reported as too dark.
+
+    The curve here is rescaled to 20 .. 800 nits: 20 keeps the dimmest step
+    readable, and 800 is the panel's top non-HBM luminance.  The largest single
+    step is 1.49x.
+
+    interpolation="linear": this is a lookup table, and a monotone cubic spline
+    would overshoot where the steps are uneven.  convertInterpolationType()
+    (DDC.java:2887) accepts "linear".
+-->
 <displayConfiguration>
     <densityMapping>
-        <density>
-            <height>3200</height>
-            <width>1440</width>
-            <density>600</density>
-        </density>
-        <density>
-            <height>2400</height>
-            <width>1080</width>
-            <density>450</density>
-        </density>
-        <density>
-            <height>1600</height>
-            <width>720</width>
-            <density>300</density>
-        </density>
+        <density><height>3200</height><width>1440</width><density>600</density></density>
+        <density><height>2400</height><width>1080</width><density>450</density></density>
+        <density><height>1600</height><width>720</width><density>300</density></density>
     </densityMapping>
+
+    <screenBrightnessMap interpolation="linear">
+        <point>
+            <value>0.00000000</value>
+            <nits>20.0</nits>
+        </point>
+        <point>
+            <value>0.03333333</value>
+            <nits>29.1</nits>
+        </point>
+        <point>
+            <value>0.06666667</value>
+            <nits>43.5</nits>
+        </point>
+        <point>
+            <value>0.10000000</value>
+            <nits>59.8</nits>
+        </point>
+        <point>
+            <value>0.13333333</value>
+            <nits>77.8</nits>
+        </point>
+        <point>
+            <value>0.16666667</value>
+            <nits>97.3</nits>
+        </point>
+        <point>
+            <value>0.20000000</value>
+            <nits>118.0</nits>
+        </point>
+        <point>
+            <value>0.23333333</value>
+            <nits>139.8</nits>
+        </point>
+        <point>
+            <value>0.26666667</value>
+            <nits>162.4</nits>
+        </point>
+        <point>
+            <value>0.30000000</value>
+            <nits>186.0</nits>
+        </point>
+        <point>
+            <value>0.33333333</value>
+            <nits>210.3</nits>
+        </point>
+        <point>
+            <value>0.36666667</value>
+            <nits>235.5</nits>
+        </point>
+        <point>
+            <value>0.40000000</value>
+            <nits>261.3</nits>
+        </point>
+        <point>
+            <value>0.43333333</value>
+            <nits>287.7</nits>
+        </point>
+        <point>
+            <value>0.46666667</value>
+            <nits>314.8</nits>
+        </point>
+        <point>
+            <value>0.50000000</value>
+            <nits>342.4</nits>
+        </point>
+        <point>
+            <value>0.53333333</value>
+            <nits>370.6</nits>
+        </point>
+        <point>
+            <value>0.56666667</value>
+            <nits>399.5</nits>
+        </point>
+        <point>
+            <value>0.60000000</value>
+            <nits>428.7</nits>
+        </point>
+        <point>
+            <value>0.63333333</value>
+            <nits>458.4</nits>
+        </point>
+        <point>
+            <value>0.66666667</value>
+            <nits>488.7</nits>
+        </point>
+        <point>
+            <value>0.70000000</value>
+            <nits>519.4</nits>
+        </point>
+        <point>
+            <value>0.73333333</value>
+            <nits>550.5</nits>
+        </point>
+        <point>
+            <value>0.76666667</value>
+            <nits>582.0</nits>
+        </point>
+        <point>
+            <value>0.80000000</value>
+            <nits>614.1</nits>
+        </point>
+        <point>
+            <value>0.83333333</value>
+            <nits>646.5</nits>
+        </point>
+        <point>
+            <value>0.86666667</value>
+            <nits>675.9</nits>
+        </point>
+        <point>
+            <value>0.90000000</value>
+            <nits>708.3</nits>
+        </point>
+        <point>
+            <value>0.93333333</value>
+            <nits>738.4</nits>
+        </point>
+        <point>
+            <value>0.96666667</value>
+            <nits>770.4</nits>
+        </point>
+        <point>
+            <value>1.00000000</value>
+            <nits>800.0</nits>
+        </point>
+    </screenBrightnessMap>
 </displayConfiguration>
