@@ -145,11 +145,19 @@ checking the size fits the sensor's active array, but 1280x3840 fits a 9248x6944
 array, so all four survived and `valid < 4` was false, which kept the fallback
 ladder from ever running.  The check now also rejects portrait pairs, since
 Samsung publishes these tables landscape.  The camera then gets a 33-entry
-table with YUV output, and the zoom button that opens it no longer takes the
-camera app down with
+table with YUV output.  That removes the
 
     java.lang.IllegalArgumentException: No available output size is found for
     androidx.camera.core.impl.PreviewConfig
+
+failure, but the camera is still not usable.  Switching to it destroys the
+camera app's activity and the session never comes up,
+
+    CXCP: Waiting for CameraCaptureSession configuration timed out
+    CXCP: Closing Camera 4
+
+so the size table was necessary and not sufficient; the session configuration is
+the next thing to look at.
 
 ## sm8250-common-voip-tx-port.patch
 
