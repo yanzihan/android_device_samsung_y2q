@@ -174,3 +174,26 @@ on post-fs-data && property:ro.csc.sales_code=DSA
 # the fix.
 on early-init
     stop vendor.bluetooth-1-0-qti
+
+# Wireless reverse charging (Samsung's "Wireless Power Share").
+#
+# The kernel driver is complete - CONFIG_WIRELESS_TX_MODE, max77705 + mfc_charger,
+# and the battery exposes wc_tx_en - but nothing in AOSP ever writes it, so the
+# feature cannot be reached from the UI.  Writing 1 to
+# /sys/class/power_supply/battery/wc_tx_en does start it: the driver logs
+# "@Tx_Mode mfc_set_tx_iout" and wc_rx_connected goes to 1 when a phone is placed
+# on the back.
+#
+# The driver protects the battery on its own (wc_tx_stop_capacity is 30), so this
+# only has to be the switch.  A property is used because no platform domain may
+# write sysfs_batteryinfo - domain.te restricts it to { open read } - while init
+# is explicitly exempt from that neverallow, and init can write sysfs from an
+# action.
+#
+# The boot rule is what makes it survive a reboot: `on property:` only fires on a
+# change, and a persist.* property is already loaded by then.
+on boot
+    write /sys/class/power_supply/battery/wc_tx_en ${persist.vendor.wireless_tx_enable}
+
+on property:persist.vendor.wireless_tx_enable=*
+    write /sys/class/power_supply/battery/wc_tx_en ${persist.vendor.wireless_tx_enable}

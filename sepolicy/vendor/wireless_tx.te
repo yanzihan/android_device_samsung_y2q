@@ -1,0 +1,27 @@
+# Wireless reverse charging.
+#
+# The battery node that starts it is labelled sysfs_batteryinfo, and AOSP keeps
+# platform domains away from that label on purpose:
+#
+#   system/sepolicy/private/domain.te:1620
+#   # Platform must not have access to sysfs_batteryinfo, but should do it via health HAL
+#   full_treble_only(`
+#     neverallow { coredomain -shell -apexd -init -ueventd -recovery -charger
+#                  -incidentd } sysfs_batteryinfo:file { open read };
+#   ')
+#
+# The neverallow only covers { open read } and exempts init, so letting init write
+# the one node is not fighting the policy - it is the route the policy leaves open,
+# and init is what performs the write from the property trigger in init.y2q.rc.
+#
+# Both boot and the property change go through the same node, so the rule has to
+# cover writing it; nothing else under sysfs_batteryinfo is writable from init
+# because the actions in that rc only ever name this path.
+allow init sysfs_batteryinfo:file w_file_perms;
+
+# The switch itself.  shell is for `adb shell setprop`; system_app is what a
+# future Settings entry or Quick Settings tile would be.  See property_contexts
+# for the label.
+type wireless_tx_prop, property_type;
+set_prop(shell, wireless_tx_prop)
+set_prop(system_app, wireless_tx_prop)

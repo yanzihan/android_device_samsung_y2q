@@ -33,3 +33,9 @@ ro.vendor.nfc.support.nonaid=false
 # the device sits at 60 Hz and Settings offers no refresh-rate picker.
 ro.surface_flinger.enable_frame_rate_override=true
 ro.surface_flinger.game_default_frame_rate_override=60
+
+# Wireless reverse charging.  The kernel driver is complete but nothing writes the
+# node that starts it, so init.y2q.rc does, from this property: on boot and on
+# every change of it.  0 is off, and the driver stops transmitting on its own at
+# wc_tx_stop_capacity (30%).
+persist.vendor.wireless_tx_enable=0

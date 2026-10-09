@@ -1,0 +1,3 @@
+# Wireless reverse charging switch.  init.y2q.rc writes this value into
+# /sys/class/power_supply/battery/wc_tx_en on boot and on every change.
+persist.vendor.wireless_tx_enable    u:object_r:wireless_tx_prop:s0 exact int
