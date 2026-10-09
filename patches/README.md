@@ -6,7 +6,8 @@ work.  Apply them from the root of the corresponding `repo` project:
     cd system/libbase                && git am ../../device/samsung/y2q/patches/libbase-restore-Trim-overload.patch
     cd packages/apps/PhhIms          && git am ../../device/samsung/y2q/patches/phhims-sip-invite-fixes.patch
     cd hardware/qcom-caf/sm8250/audio && git am ../../device/samsung/y2q/patches/audio-hal-adev-set-mode-lock.patch
-    cd hardware/samsung             && git am ../../device/samsung/y2q/patches/camera-provider-system-group.patch
+    cd hardware/samsung             && git am ../../device/samsung/y2q/patches/camera-provider-fixes.patch
+    cd device/samsung/sm8250-common && git am ../../device/samsung/y2q/patches/sm8250-common-voip-tx-port.patch
 
 `git apply` works too if the project has local commits on top.
 
@@ -88,21 +89,56 @@ took the dialog down.  It now answers 200 with the session already in use.
 already holds, so `MODE_IN_CALL` is issued late and the call has no audio.  The
 patch makes the lock a timed one and logs when it is contended.
 
-## camera-provider-system-group.patch
+## camera-provider-fixes.patch
 
-The camera HAL could not write the camera id remap table, so every stream
-configuration was rejected and the preview never came up:
+Three faults kept the camera provider from working at all.  Every non-main-lens
+session - ultrawide, telephoto, front, zoomed video - failed with "camera session
+error" and took the whole provider down with it.
+
+**SIGPIPE killed the provider.**  The Samsung camera libraries send OEM requests
+to the RIL daemon over the `@VND_Multiclient` socket without installing a handler
+for SIGPIPE.  When the RIL side closes an idle connection the write takes the
+process down silently - no tombstone - and every camera goes with it.  The
+provider now ignores SIGPIPE before loading the vendor libraries; SIG_IGN
+survives exec, so their writes fail with EPIPE instead, which the camera code
+already tolerates.
+
+**The HAL could not write the camera id remap table.**  The kernel driver creates
+`/sys/class/camera/rear/supported_cameraIds` as `system:system 0664` and the
+Camera Hardware Interface writes the remap into it.  The provider runs as
+`cameraserver` with gid `camera`, and the rc listed
+
+    group audio camera input drmrpc usb
+
+so it was not in the owning group:
 
     [ERROR][HAL] camxchicontext.cpp: EnumerateSensorModes() Unsupported capability
     sysfs open file failed. [/sys/class/camera/rear/supported_cameraIds]
     pResult contains more buffers (1) than the expected number of buffers (0)
 
-The kernel driver creates that node as `system:system 0664`.  The provider runs
-as `cameraserver` with gid `camera`, and the rc here listed
+The stock provider lists `system` alongside those groups.  With it added the HAL
+writes `0 1 2 20 21 23 50 52 80` on startup and the sysfs error stops.
 
-    group audio camera input drmrpc usb
+**Static metadata was incomplete for some cameras.**  Some of the libraries this
+provider loads were built for a different board's camera topology, and for the
+cameras that do not line up the metadata comes out unsorted or short.
+`find_camera_metadata_ro_entry()` binary-searches and silently fails on an
+unsorted blob, so `CameraDevice.cpp` scans linearly instead, and repairs streams
+missing `ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS` while
+`ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS` is present.  Both repairs are
+recognised by their pathology rather than by camera id, so unaffected devices
+keep their metadata untouched.
 
-so it was not in the owning group and had no write permission.  The stock
-provider lists `system` alongside those groups.  With it added the HAL writes
-the table on startup - `0 1 2 20 21 23 50 52 80` on y2q - and the sysfs error
-disappears.
+## sm8250-common-voip-tx-port.patch
+
+`AudioPolicyManager::getInputForAttr()` adds `AUDIO_INPUT_FLAG_VOIP_TX` itself
+whenever the source is `AUDIO_SOURCE_VOICE_COMMUNICATION` and the format is
+linear PCM, and then looks for a mixPort carrying that flag.  The policy here
+declared no such port, so the lookup found nothing and the capture was refused:
+
+    AudioRecord.getMinBufferSize failed: -2
+
+which is what broke IMS calls - the stack posts no RTP after the 200 OK and the
+call is torn down after 2000 ms.  The HAL side of the path was already complete;
+only the policy declaration was missing, and the stock firmware is missing it
+too.

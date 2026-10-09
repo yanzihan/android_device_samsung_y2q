@@ -1,0 +1,47 @@
+diff --git a/audio/configs/audio_policy_configuration.xml b/audio/configs/audio_policy_configuration.xml
+index d70f8d5..013e7a3 100644
+--- a/audio/configs/audio_policy_configuration.xml
++++ b/audio/configs/audio_policy_configuration.xml
+@@ -100,6 +100,29 @@
+                              samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000"
+                              channelMasks="AUDIO_CHANNEL_IN_MONO AUDIO_CHANNEL_IN_STEREO AUDIO_CHANNEL_IN_FRONT_BACK AUDIO_CHANNEL_INDEX_MASK_3"/>
+                 </mixPort>
++                <!-- VoIP capture.  AudioPolicyManager::getInputForAttr() adds
++                     AUDIO_INPUT_FLAG_VOIP_TX itself whenever the source is
++                     AUDIO_SOURCE_VOICE_COMMUNICATION and the format is linear PCM
++                     (frameworks/av/services/audiopolicy/managerdefault/AudioPolicyManager.cpp:3259),
++                     and then looks for a mixPort carrying that flag.  Without this port
++                     getInputProfile() finds nothing and the capture is refused with
++                       AudioRecord.getMinBufferSize failed: -2
++                     which is what breaks IMS calls (the IMS stack posts no RTP after the
++                     200 OK, and the call is torn down after 2000 ms).
++
++                     The HAL side of the path already exists and is complete:
++                     audio_hw.c:9678 selects USECASE_AUDIO_RECORD_VOIP for
++                     AUDIO_SOURCE_VOICE_COMMUNICATION + AUDIO_INPUT_FLAG_VOIP_TX at
++                     8000/16000/32000/48000 Hz mono, and mixer_paths.xml has the whole
++                     audio-record-voip / audio-playback-voip mixer set.  Only the policy
++                     declaration was missing (the stock firmware is missing it too).
++                     Same shape as the reference in
++                     hardware/qcom-caf/sm8150/audio/configs/kona/audio_policy_configuration.xml:203. -->
++                <mixPort name="voip_tx" role="sink" flags="AUDIO_INPUT_FLAG_VOIP_TX">
++                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
++                             samplingRates="8000 16000 32000 48000"
++                             channelMasks="AUDIO_CHANNEL_IN_MONO"/>
++                </mixPort>
+             </mixPorts>
+ 
+             <devicePorts>
+@@ -188,6 +211,12 @@
+                        sources="Built-In Mic,Built-In Back Mic,BT SCO Headset Mic,FM Tuner,Aux Device In,Telephony Rx"/>
+                 <route type="mix" sink="mmap_no_irq_in"
+                        sources="Built-In Mic,Built-In Back Mic"/>
++                <!-- Capture devices the VoIP input may be routed to.  The HAL forces
++                     USECASE_AUDIO_RECORD_VOIP in this case (audio_hw.c:9678), whose
++                     mixer paths are audio-record-voip; the device list here is what the
++                     scene can be attached to. -->
++                <route type="mix" sink="voip_tx"
++                       sources="Built-In Mic,Built-In Back Mic,BT SCO Headset Mic"/>
+             </routes>
+ 
+         </module>
